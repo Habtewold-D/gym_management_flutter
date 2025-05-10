@@ -1,5 +1,6 @@
 package com.example.gymmanagement.ui.screens.member.profile
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,11 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gymmanagement.data.model.UserProfile
 import com.example.gymmanagement.viewmodel.MemberProfileViewModel
@@ -32,7 +35,7 @@ import com.example.gymmanagement.viewmodel.MemberProfileViewModel
 @Composable
 fun MemberProfileScreen(
     userEmail: String,
-    viewModel: MemberProfileViewModel = viewModel(),
+    viewModel: MemberProfileViewModel,
     onLogout: () -> Unit = {}
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -126,12 +129,16 @@ fun MemberProfileScreen(
                     if (!isEditing) {
                         DisplayProfile(
                             profile = profile,
-                            onEditClick = { isEditing = true }
+                            onEditClick = { 
+                                Log.d("MemberProfileScreen", "Edit button clicked")
+                                isEditing = true 
+                            }
                         )
                     } else {
                         EditProfile(
                             profile = profile,
                             onSave = { updatedProfile ->
+                                Log.d("MemberProfileScreen", "Save button clicked with profile: $updatedProfile")
                                 viewModel.updateUserProfileWithBMI(
                                     email = updatedProfile.email,
                                     name = updatedProfile.name,
@@ -142,7 +149,10 @@ fun MemberProfileScreen(
                                 )
                                 isEditing = false
                             },
-                            onCancel = { isEditing = false }
+                            onCancel = { 
+                                Log.d("MemberProfileScreen", "Cancel button clicked")
+                                isEditing = false 
+                            }
                         )
                     }
                 }
@@ -182,7 +192,12 @@ fun DisplayProfile(
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black
                     )
-                    IconButton(onClick = onEditClick) {
+                    IconButton(
+                        onClick = {
+                            Log.d("MemberProfileScreen", "Edit button clicked for profile: $profile")
+                            onEditClick()
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
@@ -214,6 +229,10 @@ fun EditProfile(
     var age by remember { mutableStateOf(profile.age?.toString() ?: "") }
     var height by remember { mutableStateOf(profile.height?.toString() ?: "") }
     var weight by remember { mutableStateOf(profile.weight?.toString() ?: "") }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Log.d("MemberProfileScreen", "EditProfile composable created with profile: $profile")
 
     Box(
         modifier = Modifier
@@ -238,7 +257,7 @@ fun EditProfile(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                // Name
+                // Name (required)
                 Text("Name", fontWeight = FontWeight.Medium, color = Color.Black)
                 OutlinedTextField(
                     value = name,
@@ -247,7 +266,8 @@ fun EditProfile(
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp),
-                    singleLine = true
+                    singleLine = true,
+                    isError = showError && name.isBlank()
                 )
 
                 // Age
@@ -260,7 +280,8 @@ fun EditProfile(
                         .padding(vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = showError && age.isBlank()
                 )
 
                 // Height
@@ -273,11 +294,12 @@ fun EditProfile(
                         .padding(vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = showError && height.isBlank()
                 )
 
                 // Weight
-                Text("weight(kg):", fontWeight = FontWeight.Medium, color = Color.Black)
+                Text("Weight(kg):", fontWeight = FontWeight.Medium, color = Color.Black)
                 OutlinedTextField(
                     value = weight,
                     onValueChange = { weight = it },
@@ -286,8 +308,17 @@ fun EditProfile(
                         .padding(vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = showError && weight.isBlank()
                 )
+
+                if (showError && errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = Color.Red,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -304,15 +335,43 @@ fun EditProfile(
                         shape = RoundedCornerShape(8.dp),
                         border = ButtonDefaults.outlinedButtonBorder
                     ) {
-                        Text("cancel", color = Color.Black)
+                        Text("Cancel", color = Color.Black)
                     }
                     Button(
                         onClick = {
+                            if (name.isBlank()) {
+                                showError = true
+                                errorMessage = "Name is required"
+                                return@Button
+                            }
+
+                            val ageInt = age.toIntOrNull()
+                            val heightFloat = height.toFloatOrNull()
+                            val weightFloat = weight.toFloatOrNull()
+
+                            if (age.isBlank() || height.isBlank() || weight.isBlank()) {
+                                showError = true
+                                errorMessage = "Please fill in all fields"
+                                return@Button
+                            }
+
+                            if (ageInt == null || heightFloat == null || weightFloat == null) {
+                                showError = true
+                                errorMessage = "Please enter valid numbers"
+                                return@Button
+                            }
+
+                            // Defensive copy for membershipStatus
                             val updatedProfile = profile.copy(
                                 name = name,
-                                age = age.toIntOrNull(),
-                                height = height.toFloatOrNull(),
-                                weight = weight.toFloatOrNull()
+                                age = ageInt,
+                                height = heightFloat,
+                                weight = weightFloat,
+                                id = profile.id,
+                                email = profile.email,
+                                role = profile.role,
+                                joinDate = profile.joinDate,
+                                membershipStatus = profile.membershipStatus ?: "active" // <-- Defensive copy here!
                             )
                             onSave(updatedProfile)
                         },

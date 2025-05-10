@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../users/entities/user.entitiy';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -20,8 +22,11 @@ export class EventsController {
 
   @Get()
   @Roles(Role.ADMIN, Role.MEMBER)
-  findAll() {
-    return this.eventsService.findAll();
+  async findAll() {
+    return (await this.eventsService.findAll()).map(event => ({
+      ...event,
+      createdBy: event.createdBy.id,
+    }));
   }
 
   @Get(':id')

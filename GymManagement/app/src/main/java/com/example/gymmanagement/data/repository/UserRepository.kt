@@ -1,6 +1,7 @@
 package com.example.gymmanagement.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.gymmanagement.data.api.ApiClient
 import com.example.gymmanagement.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,7 @@ interface UserRepository {
 class UserRepositoryImpl(
     private val context: Context
 ) : UserRepository {
+    private val TAG = "UserRepositoryImpl"
     private val sharedPreferences = context.applicationContext.getSharedPreferences("user_session", Context.MODE_PRIVATE)
     private val userApi = ApiClient.getUserApi()
 
@@ -40,11 +42,27 @@ class UserRepositoryImpl(
     }
 
     override suspend fun updateUserProfile(userId: Int, profile: UserProfile): Result<UserProfile> {
+        Log.d(TAG, "Updating user profile for ID: $userId")
+        Log.d(TAG, "Profile data: $profile")
         return try {
+            Log.d(TAG, "Making API call to update user profile")
             val response = userApi.updateUserProfile(userId, profile)
+            Log.d(TAG, "API Response: $response")
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e(TAG, "Error updating user profile", e)
+            when (e) {
+                is retrofit2.HttpException -> {
+                    val errorBody = e.response()?.errorBody()?.string()
+                    Log.e(TAG, "HTTP Error response: $errorBody")
+                    Log.e(TAG, "HTTP Error code: ${e.code()}")
+                    Result.failure(Exception("Server error: ${e.code()} - $errorBody"))
+                }
+                else -> {
+                    Log.e(TAG, "Unexpected error: ${e.message}")
+                    Result.failure(e)
+                }
+            }
         }
     }
 
@@ -85,10 +103,22 @@ class UserRepositoryImpl(
     }
 
     override suspend fun getUserProfile(email: String): UserProfile? {
+        Log.d(TAG, "Getting user profile for email: $email")
         return try {
+            Log.d(TAG, "Making API call to getUserByEmail with email: $email")
             val response = userApi.getUserByEmail(email)
+            Log.d(TAG, "API Response: $response")
             response
         } catch (e: Exception) {
+            Log.e(TAG, "Error getting user profile", e)
+            when (e) {
+                is retrofit2.HttpException -> {
+                    val errorBody = e.response()?.errorBody()?.string()
+                    Log.e(TAG, "HTTP Error response: $errorBody")
+                    Log.e(TAG, "HTTP Error code: ${e.code()}")
+                }
+                else -> Log.e(TAG, "Unexpected error: ${e.message}")
+            }
             null
         }
     }

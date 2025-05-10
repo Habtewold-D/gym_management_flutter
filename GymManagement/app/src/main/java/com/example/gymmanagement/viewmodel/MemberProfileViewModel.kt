@@ -1,11 +1,11 @@
 package com.example.gymmanagement.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymmanagement.data.model.UserProfile
 import com.example.gymmanagement.data.repository.UserRepository
-import com.example.gymmanagement.data.repository.UserRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,8 +13,10 @@ import kotlinx.coroutines.launch
 
 class MemberProfileViewModel(
     private val context: Context,
-    private val userRepository: UserRepository = UserRepositoryImpl(context)
+    private val userRepository: UserRepository
 ) : ViewModel() {
+    private val TAG = "MemberProfileViewModel"
+    
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
@@ -25,17 +27,22 @@ class MemberProfileViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     fun getUserProfileByEmail(email: String) {
+        Log.d(TAG, "Getting profile for email: $email")
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
+                Log.d(TAG, "Calling repository to get user profile")
                 val profile = userRepository.getUserProfile(email)
                 if (profile != null) {
+                    Log.d(TAG, "Profile found: $profile")
                     _userProfile.value = profile
                 } else {
+                    Log.e(TAG, "Profile not found for email: $email")
                     _error.value = "Profile not found"
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error getting profile", e)
                 _error.value = e.message ?: "An unexpected error occurred"
             } finally {
                 _isLoading.value = false
@@ -51,6 +58,8 @@ class MemberProfileViewModel(
         weight: Float?,
         role: String = "member"
     ) {
+        Log.d(TAG, "updateUserProfileWithBMI called with - Email: $email, Name: $name, Age: $age, Height: $height, Weight: $weight")
+        
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -69,7 +78,11 @@ class MemberProfileViewModel(
                     height = height,
                     weight = weight,
                     bmi = bmi,
-                    role = role
+                    role = role,
+                    id = currentProfile.id,
+                    email = currentProfile.email,
+                    joinDate = currentProfile.joinDate,
+                    membershipStatus = currentProfile.membershipStatus ?: "active"
                 )
 
                 userRepository.updateUserProfile(currentProfile.id, updatedProfile)

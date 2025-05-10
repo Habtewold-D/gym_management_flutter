@@ -155,28 +155,20 @@ class AuthViewModel(
                     // Set the access token in ApiClient
                     response.access_token?.let { token ->
                         ApiClient.setAccessToken(token)
-                        Log.d(TAG, "Access token set in ApiClient")
+                        Log.d(TAG, "Access token set in ApiClient: $token")
                     }
                     
                     // Save the session
                     response.user?.let { user ->
                         saveSession(user)
                     }
-                    
-                    Log.d(TAG, "Login process completed successfully")
                 }.onFailure { e ->
                     Log.e(TAG, "Login failed", e)
                     _error.value = e.message ?: "Login failed"
-                    _isAuthenticated.value = false
-                    _userData.value = null
-                    ApiClient.setAccessToken(null)  // Clear any existing token
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error during login", e)
                 _error.value = e.message ?: "An unexpected error occurred"
-                _isAuthenticated.value = false
-                _userData.value = null
-                ApiClient.setAccessToken(null)  // Clear any existing token
             } finally {
                 _isLoading.value = false
             }

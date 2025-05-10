@@ -32,6 +32,7 @@ fun MemberWorkoutScreen(
     userId: Int
 ) {
     val TAG = "MemberWorkoutScreen"
+    val progress by viewModel.progress.collectAsState()
     val workouts by viewModel.workouts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -62,6 +63,22 @@ fun MemberWorkoutScreen(
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         }
+
+        // Progress Bar Section
+        ProgressCard(progress = progress)
+
+        Text(
+            text = "Your Workouts",
+            style = MaterialTheme.typography.titleLarge.copy(
+                color = Color(0xFF1A18C6),
+                fontWeight = FontWeight.Bold
+            ),
+            modifier = Modifier
+                .padding(top = 24.dp, bottom = 8.dp)
+                .align(Alignment.CenterHorizontally)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         when {
             isLoading -> {
@@ -238,6 +255,50 @@ fun WorkoutCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ProgressCard(progress: Float) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB))
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Today's Progress",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Black
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Gray
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                color = Color(0xFF1A18C6), // Deep blue
+                trackColor = Color(0xFFE0E0E0)
+            )
         }
     }
 }

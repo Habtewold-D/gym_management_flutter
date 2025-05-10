@@ -33,20 +33,17 @@ object ApiClient {
     }
 
     private val authInterceptor = { chain: Interceptor.Chain ->
-        val originalRequest = chain.request()
-        val requestBuilder = originalRequest.newBuilder()
-        
-        // Add the access token to the request header if it exists
-        accessToken?.let { token ->
-            requestBuilder.header("Authorization", "Bearer $token")
-            Log.d(TAG, "Adding Authorization header with token: Bearer $token")
-        } ?: run {
-            Log.d(TAG, "No access token available for request to: ${originalRequest.url}")
+        val request = chain.request()
+        val newRequest = if (accessToken != null) {
+            Log.d(TAG, "Adding Authorization header with token: $accessToken")
+            request.newBuilder()
+                .header("Authorization", "Bearer $accessToken")
+                .build()
+        } else {
+            Log.e(TAG, "No access token available for request: ${request.url}")
+            request
         }
-        
-        val request = requestBuilder.build()
-        Log.d(TAG, "Request headers: ${request.headers}")
-        chain.proceed(request)
+        chain.proceed(newRequest)
     }
 
     private val okHttpClient = OkHttpClient.Builder()

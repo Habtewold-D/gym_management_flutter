@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +51,7 @@ fun MemberEventScreen(
                 .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
             Text(
-                text = "Upcoming Events",
+                text = "Gym Events",
                 color = Color.White,
                 fontSize = 28.sp,
                 modifier = Modifier.align(Alignment.CenterStart)
@@ -108,141 +109,124 @@ fun MemberEventScreen(
 }
 
 @Composable
-fun EventCard(event: EventResponse) {
+fun EventCard(
+    event: EventResponse,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(170.dp)
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+            .height(220.dp)
+            .padding(12.dp),
+        shape = RoundedCornerShape(32.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Background Image or fallback color
-            if (!event.imageUri.isNullOrEmpty()) {
-                AsyncImage(
-                    model = event.imageUri,
-                    contentDescription = null,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                )
-            }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            // Background image (use Coil for remote images)
+            AsyncImage(
+                model = event.imageUri, // event.imageUri should be a URL or local resource
+                contentDescription = "Event Image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+            )
 
-            // Bottom: Info in a single white rounded box
+            // Gradient overlay for better text visibility
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp)
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0x80000000), // semi-transparent black
+                                Color(0x00000000),
+                                Color(0x80000000)
+                            ),
+                            startY = 0f,
+                            endY = Float.POSITIVE_INFINITY
+                        )
+                    )
+            )
+
+            // Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Title centered at the top
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    ),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 8.dp)
+                )
+
+                // Spacer(modifier = Modifier.weight(1f))
+
+                // Date, Time, Location
                 Column(
                     modifier = Modifier
-                        .widthIn(max = 320.dp)
+                        .align(Alignment.Start)
+                        .padding(bottom = 8.dp)
                 ) {
-                    // Title row
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(12.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.Event,
+                            contentDescription = "Date",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = event.title,
-                            color = Color.Black,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            text = event.date,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    // Date row
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(12.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(14.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = "Time",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = event.time,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = event.date,
-                                color = Color.Black,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        )
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    // Time row
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(12.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AccessTime,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(14.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = "Location",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = event.location,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = event.time,
-                                color = Color.Black,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    // Location row
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(12.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = event.location,
-                                color = Color.Black,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        )
                     }
                 }
             }

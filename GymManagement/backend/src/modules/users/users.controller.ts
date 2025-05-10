@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Param, UseGuards, ParseIntPipe, Request, UnauthorizedException, Delete } from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, UseGuards, ParseIntPipe, Request, UnauthorizedException, Delete, Patch } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,7 +27,7 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   @Roles(Role.MEMBER)
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -48,7 +48,7 @@ export class UsersController {
   }
 
   @Get('email/:email')
-  @Roles(Role.ADMIN)
+  @Roles(Role.MEMBER)
   async findByEmail(@Param('email') email: string) {
     return this.usersService.findByEmail(email);
   }

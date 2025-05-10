@@ -72,6 +72,16 @@ fun MemberScreen(
             null
         }
     }
+
+    val userRepository = remember {
+        try {
+            Log.d(TAG, "Initializing UserRepository")
+            UserRepositoryImpl(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing UserRepository", e)
+            null
+        }
+    }
     
     // Initialize ViewModels with proper error handling
     val memberWorkoutViewModel = remember { 
@@ -102,7 +112,21 @@ fun MemberScreen(
             null
         }
     }
-    
+
+    val memberProfileViewModel = remember {
+        try {
+            if (userRepository != null) {
+                MemberProfileViewModel(context, userRepository)
+            } else {
+                Log.e("MemberScreen", "UserRepository is null")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("MemberScreen", "Error initializing MemberProfileViewModel", e)
+            null
+        }
+    }
+
     // Get user data from AuthViewModel
     val isAuthenticated by viewModel.isAuthenticated.collectAsState()
     val userData by viewModel.userData.collectAsState()
@@ -242,22 +266,32 @@ fun MemberScreen(
                 }
             }
             composable(AppRoutes.MEMBER_PROFILE) {
-                userData?.user?.let { user ->
-                    MemberProfileScreen(
-                        userEmail = user.email,
-                        onLogout = {
-                            viewModel.logout()
-                            navController.navigate(AppRoutes.LOGIN) {
-                                popUpTo(0) { inclusive = true }
+                if (memberProfileViewModel != null) {
+                    userData?.user?.let { user ->
+                        MemberProfileScreen(
+                            userEmail = user.email,
+                            viewModel = memberProfileViewModel,
+                            onLogout = {
+                                viewModel.logout()
+                                navController.navigate(AppRoutes.LOGIN) {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             }
+                        )
+                    } ?: run {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Please log in to view your profile")
                         }
-                    )
-                } ?: run {
+                    }
+                } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Please log in to view your profile")
+                        Text("Error initializing profile screen")
                     }
                 }
             }
