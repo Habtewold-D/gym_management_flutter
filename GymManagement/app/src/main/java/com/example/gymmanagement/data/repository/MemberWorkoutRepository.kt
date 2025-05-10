@@ -1,44 +1,100 @@
 package com.example.gymmanagement.data.repository
 
-import com.example.gymmanagement.data.dao.MemberWorkoutDao
-import com.example.gymmanagement.data.model.MemberWorkout
+import com.example.gymmanagement.data.api.ApiClient
+import com.example.gymmanagement.data.model.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 interface MemberWorkoutRepository {
-    fun getWorkoutsForTrainee(traineeId: String): Flow<List<MemberWorkout>>
-    fun getAllWorkouts(): Flow<List<MemberWorkout>>
-    suspend fun insertWorkout(workout: MemberWorkout)
-    suspend fun updateWorkout(workout: MemberWorkout)
-    suspend fun deleteWorkout(workout: MemberWorkout)
-    suspend fun updateWorkoutCompletion(workoutId: Int, isCompleted: Boolean)
-    fun getCompletedWorkoutsCount(traineeId: String): Flow<Int>
-    fun getTotalWorkoutsCount(traineeId: String): Flow<Int>
+    suspend fun getWorkoutsForTrainee(traineeId: Int): Result<List<WorkoutResponse>>
+    suspend fun getAllWorkouts(): Result<List<WorkoutResponse>>
+    suspend fun createWorkout(workout: WorkoutRequest): Result<WorkoutResponse>
+    suspend fun updateWorkout(id: Int, workout: WorkoutUpdateRequest): Result<WorkoutResponse>
+    suspend fun deleteWorkout(id: Int): Result<Unit>
+    suspend fun updateWorkoutCompletion(id: Int): Result<WorkoutResponse>
+    suspend fun getWorkoutStats(traineeId: Int): Result<WorkoutStatsResponse>
+    
+    // Flow wrappers for UI
+    fun getWorkoutsForTraineeFlow(traineeId: Int): Flow<List<WorkoutResponse>>
+    fun getAllWorkoutsFlow(): Flow<List<WorkoutResponse>>
 }
 
-class MemberWorkoutRepositoryImpl(
-    private val memberWorkoutDao: MemberWorkoutDao
-) : MemberWorkoutRepository {
-    override fun getWorkoutsForTrainee(traineeId: String): Flow<List<MemberWorkout>> =
-        memberWorkoutDao.getWorkoutsForTrainee(traineeId)
+class MemberWorkoutRepositoryImpl : MemberWorkoutRepository {
+    private val workoutApi = ApiClient.getWorkoutApi()
 
-    override fun getAllWorkouts(): Flow<List<MemberWorkout>> =
-        memberWorkoutDao.getAllWorkouts()
+    override suspend fun getWorkoutsForTrainee(traineeId: Int): Result<List<WorkoutResponse>> {
+        return try {
+            val response = workoutApi.getUserWorkouts()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override suspend fun insertWorkout(workout: MemberWorkout) =
-        memberWorkoutDao.insertWorkout(workout)
+    override suspend fun getAllWorkouts(): Result<List<WorkoutResponse>> {
+        return try {
+            val response = workoutApi.getAllWorkouts()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override suspend fun updateWorkout(workout: MemberWorkout) =
-        memberWorkoutDao.updateWorkout(workout)
+    override suspend fun createWorkout(workout: WorkoutRequest): Result<WorkoutResponse> {
+        return try {
+            val response = workoutApi.createWorkout(workout)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override suspend fun deleteWorkout(workout: MemberWorkout) =
-        memberWorkoutDao.deleteWorkout(workout)
+    override suspend fun updateWorkout(id: Int, workout: WorkoutUpdateRequest): Result<WorkoutResponse> {
+        return try {
+            val response = workoutApi.updateWorkout(id, workout)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override suspend fun updateWorkoutCompletion(workoutId: Int, isCompleted: Boolean) =
-        memberWorkoutDao.updateWorkoutCompletion(workoutId, isCompleted)
+    override suspend fun deleteWorkout(id: Int): Result<Unit> {
+        return try {
+            workoutApi.deleteWorkout(id)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override fun getCompletedWorkoutsCount(traineeId: String): Flow<Int> =
-        memberWorkoutDao.getCompletedWorkoutsCount(traineeId)
+    override suspend fun updateWorkoutCompletion(id: Int): Result<WorkoutResponse> {
+        return try {
+            val response = workoutApi.toggleWorkoutCompletion(id)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    override fun getTotalWorkoutsCount(traineeId: String): Flow<Int> =
-        memberWorkoutDao.getTotalWorkoutsCount(traineeId)
+    override suspend fun getWorkoutStats(traineeId: Int): Result<WorkoutStatsResponse> {
+        return try {
+            val response = workoutApi.getWorkoutStats(traineeId)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Flow wrappers for UI
+    override fun getWorkoutsForTraineeFlow(traineeId: Int): Flow<List<WorkoutResponse>> = flow {
+        getWorkoutsForTrainee(traineeId).onSuccess { workouts ->
+            emit(workouts)
+        }
+    }
+
+    override fun getAllWorkoutsFlow(): Flow<List<WorkoutResponse>> = flow {
+        getAllWorkouts().onSuccess { workouts ->
+            emit(workouts)
+        }
+    }
 } 

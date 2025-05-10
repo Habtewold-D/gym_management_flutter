@@ -17,7 +17,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.gymmanagement.data.database.AppDatabase
 import com.example.gymmanagement.data.repository.WorkoutRepositoryImpl
 import com.example.gymmanagement.data.repository.EventRepository
 import com.example.gymmanagement.data.repository.UserRepositoryImpl
@@ -30,6 +29,9 @@ import com.example.gymmanagement.ui.screens.member.event.MemberEventScreen
 import com.example.gymmanagement.viewmodel.*
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import com.example.gymmanagement.data.model.UserProfile
+import com.example.gymmanagement.data.repository.EventRepositoryImpl
+import com.example.gymmanagement.viewmodel.MemberWorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,9 +39,12 @@ fun MemberScreen(
     navController: NavController,
     viewModel: AuthViewModel
 ) {
+    val TAG = "MemberScreen"
     val context = LocalContext.current
     val memberNavController = rememberNavController()
     val currentRoute = currentRoute(memberNavController)
+
+    Log.d(TAG, "Initializing MemberScreen")
 
     // Set status bar color to white for visibility
     androidx.compose.runtime.SideEffect {
@@ -47,48 +52,73 @@ fun MemberScreen(
         window?.statusBarColor = Color.White.toArgb()
     }
 
-    // Initialize database and repositories
-    val db = AppDatabase.getDatabase(context)
-    val workoutDao = remember { db.workoutDao() }
-    val eventDao = remember { db.eventDao() }
-    val userDao = remember { db.userDao() }
-    val userProfileDao = remember { db.userProfileDao() }
-    val traineeProgressDao = remember { db.traineeProgressDao() }
-
-    val workoutRepository = remember { WorkoutRepositoryImpl(workoutDao) }
-    val eventRepository = remember { EventRepository(eventDao) }
-    val userRepository = remember { UserRepositoryImpl(userDao, userProfileDao, context) }
-    val traineeProgressRepository = remember { TraineeProgressRepositoryImpl(traineeProgressDao) }
-
-    // Initialize ViewModels
-    val currentUser by viewModel.currentUser.collectAsState()
-
-    // Create ViewModels
-    val memberWorkoutViewModel = remember(currentUser?.email) {
-        MemberWorkoutViewModel(
-            repository = workoutRepository,
-            userRepository = userRepository,
-            traineeProgressRepository = traineeProgressRepository,
-            currentUserEmail = currentUser?.email ?: ""
-        )
+    // Initialize repositories with proper error handling
+    val workoutRepository = remember { 
+        try {
+            Log.d(TAG, "Initializing WorkoutRepository")
+            WorkoutRepositoryImpl()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing WorkoutRepository", e)
+            null
+        }
     }
+    
+    val eventRepository = remember {
+        try {
+            Log.d(TAG, "Initializing EventRepository")
+            EventRepositoryImpl()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing EventRepository", e)
+            null
+        }
+    }
+    
+    // Initialize ViewModels with proper error handling
+    val memberWorkoutViewModel = remember { 
+        try {
+            Log.d(TAG, "Initializing MemberWorkoutViewModel")
+            if (workoutRepository != null) {
+                MemberWorkoutViewModel(workoutRepository)
+            } else {
+                Log.e(TAG, "WorkoutRepository is null")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing MemberWorkoutViewModel", e)
+            null
+        }
+    }
+    
     val memberEventViewModel = remember {
-        MemberEventViewModel(eventRepository)
+        try {
+            if (eventRepository != null) {
+                MemberEventViewModel(eventRepository)
+            } else {
+                Log.e("MemberScreen", "EventRepository is null")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("MemberScreen", "Error initializing MemberEventViewModel", e)
+            null
+        }
     }
-    val memberProfileViewModel = remember {
-        MemberProfileViewModel(userRepository)
-    }
+    
+    // Get user data from AuthViewModel
+    val isAuthenticated by viewModel.isAuthenticated.collectAsState()
+    val userData by viewModel.userData.collectAsState()
 
-    // Check login state
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    Log.d(TAG, "Authentication state - isAuthenticated: $isAuthenticated, userData: ${userData != null}")
 
-    LaunchedEffect(isLoggedIn, currentUser) {
-        if (!isLoggedIn || currentUser == null || currentUser?.role?.lowercase() != "member") {
-            Log.d("MemberScreen", "Not logged in or not a member, navigating to login")
+    // Check authentication state
+    LaunchedEffect(isAuthenticated, userData) {
+        if (!isAuthenticated || userData == null) {
+            Log.d(TAG, "Not authenticated or no user data, navigating to login")
             navController.navigate(AppRoutes.LOGIN) {
                 popUpTo(0) { inclusive = true }
                 launchSingleTop = true
             }
+        } else {
+            Log.d(TAG, "User authenticated, proceeding to member screen")
         }
     }
 
@@ -176,16 +206,45 @@ fun MemberScreen(
             modifier = Modifier.padding(paddingValues)
         ) {
             composable(AppRoutes.MEMBER_WORKOUT) {
-                MemberWorkoutScreen(viewModel = memberWorkoutViewModel)
+                if (memberWorkoutViewModel != null) {
+                    userData?.user?.let { user ->
+                        MemberWorkoutScreen(
+                            viewModel = memberWorkoutViewModel,
+                            userId = user.id
+                        )
+                    } ?: run {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("User data not available")
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Error initializing workout screen")
+                    }
+                }
             }
             composable(AppRoutes.MEMBER_EVENT) {
-                MemberEventScreen(viewModel = memberEventViewModel)
+                if (memberEventViewModel != null) {
+                    MemberEventScreen(viewModel = memberEventViewModel)
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Error initializing event screen")
+                    }
+                }
             }
             composable(AppRoutes.MEMBER_PROFILE) {
-                currentUser?.let { user ->
+                userData?.user?.let { user ->
                     MemberProfileScreen(
                         userEmail = user.email,
-                        viewModel = memberProfileViewModel,
                         onLogout = {
                             viewModel.logout()
                             navController.navigate(AppRoutes.LOGIN) {

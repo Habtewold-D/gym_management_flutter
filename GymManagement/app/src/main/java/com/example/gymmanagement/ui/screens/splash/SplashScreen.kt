@@ -186,22 +186,17 @@ fun SplashScreen(
     viewModel: AuthViewModel
 ) {
     SetStatusBarWhite()
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
+    val isAuthenticated by viewModel.isAuthenticated.collectAsState()
+    val userData by viewModel.userData.collectAsState()
 
-    LaunchedEffect(isLoggedIn, currentUser) {
-        if (isLoggedIn && currentUser != null) {
-            if (currentUser!!.role.lowercase() != "admin") {
-                val route = AppRoutes.MEMBER_WORKOUT
-                navController.navigate(route) {
-                    popUpTo(0) { inclusive = true }
-                    launchSingleTop = true
-                }
-            } else {
-                navController.navigate(AppRoutes.LOGIN) {
-                    popUpTo(0) { inclusive = true }
-                    launchSingleTop = true
-                }
+    // Check authentication state and navigate accordingly
+    LaunchedEffect(isAuthenticated, userData) {
+        if (isAuthenticated && userData != null) {
+            // For now, always navigate to member workout
+            val route = AppRoutes.MEMBER_WORKOUT
+            navController.navigate(route) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -361,5 +356,29 @@ fun SplashScreen(
                 Text("Register", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+private fun ContactItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Blue,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            color = Color.Black,
+            fontSize = 16.sp
+        )
     }
 }

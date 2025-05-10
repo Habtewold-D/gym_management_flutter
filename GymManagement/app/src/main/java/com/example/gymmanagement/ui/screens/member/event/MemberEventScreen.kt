@@ -7,106 +7,96 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.gymmanagement.R
-import com.example.gymmanagement.data.model.EventEntity
-import com.example.gymmanagement.viewmodel.MemberEventViewModel
-import androidx.compose.foundation.Image
-import coil.compose.rememberAsyncImagePainter
-import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
-import androidx.compose.material3.Surface
+import com.example.gymmanagement.data.model.EventResponse
+import com.example.gymmanagement.viewmodel.MemberEventViewModel
+
+private val DeepBlue = Color(0xFF0000CD)
 
 @Composable
 fun MemberEventScreen(
     viewModel: MemberEventViewModel
 ) {
-    val events by viewModel.upcomingEvents.collectAsState(initial = emptyList())
+    val events by viewModel.events.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadEvents()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Top App Bar with "Gym Events"
+        // Top App Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A18C6))
+                .background(DeepBlue)
                 .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
             Text(
-                text = "Gym Events",
+                text = "Upcoming Events",
                 color = Color.White,
                 fontSize = 28.sp,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         }
 
-        // Upcoming Events Section
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Upcoming Events",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0000CD)
-            )
-            
-            Text(
-                text = "Join us for these exciting events",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Empty State or Events List
-            if (events.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            error != null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No upcoming events yet",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF0000CD),
+                        text = error ?: "An error occurred",
+                        color = Color.Red,
                         textAlign = TextAlign.Center
                     )
-                    
+                }
+            }
+            events.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = "Events will be displayed here when available.",
-                        fontSize = 14.sp,
-                        color = Color.Gray,
+                        text = "No upcoming events.\nCheck back later for new events!",
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
+                        fontSize = 16.sp,
+                        color = Color.Gray
                     )
                 }
-            } else {
+            }
+            else -> {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(events) { event ->
                         EventCard(event = event)
@@ -118,7 +108,7 @@ fun MemberEventScreen(
 }
 
 @Composable
-fun EventCard(event: EventEntity) {
+fun EventCard(event: EventResponse) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,7 +133,7 @@ fun EventCard(event: EventEntity) {
                 )
             }
 
-            // Bottom: Info in a single white rounded box (like admin)
+            // Bottom: Info in a single white rounded box
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -250,8 +240,7 @@ fun EventCard(event: EventEntity) {
                                 color = Color.Black,
                                 fontSize = 12.sp,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.offset(y = (-5).dp)
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

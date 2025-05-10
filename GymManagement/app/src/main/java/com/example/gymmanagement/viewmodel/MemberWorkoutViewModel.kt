@@ -3,108 +3,85 @@ package com.example.gymmanagement.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gymmanagement.data.model.Workout
-import com.example.gymmanagement.data.model.TraineeProgress
+import com.example.gymmanagement.data.model.WorkoutResponse
 import com.example.gymmanagement.data.repository.WorkoutRepository
-import com.example.gymmanagement.data.repository.UserRepository
-import com.example.gymmanagement.data.repository.TraineeProgressRepository
-import kotlinx.coroutines.flow.*
+import com.example.gymmanagement.data.repository.WorkoutRepositoryImpl
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 class MemberWorkoutViewModel(
-    private val repository: WorkoutRepository,
-    private val userRepository: UserRepository,
-    private val traineeProgressRepository: TraineeProgressRepository,
-    private val currentUserEmail: String
+    private val workoutRepository: WorkoutRepository = WorkoutRepositoryImpl()
 ) : ViewModel() {
+    private val TAG = "MemberWorkoutViewModel"
+    
+    private val _workouts = MutableStateFlow<List<WorkoutResponse>>(emptyList())
+    val workouts: StateFlow<List<WorkoutResponse>> = _workouts.asStateFlow()
 
-    private val _traineeId = MutableStateFlow<Int?>(null)
-    val traineeId: StateFlow<Int?> = _traineeId.asStateFlow()
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _workouts = MutableStateFlow<List<Workout>>(emptyList())
-    val workouts: StateFlow<List<Workout>> = _workouts.asStateFlow()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _progress = MutableStateFlow(0f)
-    val progress: StateFlow<Float> = _progress.asStateFlow()
-
-    init {
-        // Load traineeId
-        viewModelScope.launch {
-            try {
-                val userProfile = userRepository.getUserProfileByEmail(currentUserEmail)
-                _traineeId.value = userProfile?.id
-                Log.d("MemberWorkoutViewModel", "Loaded traineeId: ${_traineeId.value}")
-            } catch (e: Exception) {
-                Log.e("MemberWorkoutViewModel", "Error loading traineeId", e)
-            }
+    val progress: StateFlow<Float> = _workouts
+        .map { list ->
+            if (list.isEmpty()) 0f
+            else list.count { it.isCompleted }.toFloat() / list.size
         }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0f)
 
-        // Reactively load workouts and progress when traineeId is available
+    fun loadWorkouts(userId: Int) {
+        Log.d(TAG, "Loading workouts for current user")
         viewModelScope.launch {
-            traineeId.filterNotNull().collect { id ->
-                // Load workouts
-                repository.getWorkoutsByTraineeId(id)
-                    .onEach { workouts ->
-                        Log.d("MemberWorkoutViewModel", "Received workouts: $workouts")
-                        _workouts.value = workouts
-                        updateProgress(workouts)
-                    }
-                    .catch { e ->
-                        Log.e("MemberWorkoutViewModel", "Error fetching workouts", e)
-                    }
-                    .collect()
-
-                // Load saved progress
-                traineeProgressRepository.getProgressByTraineeId(id.toString())
-                    .collect { progressList ->
-                        progressList.firstOrNull()?.let { progress ->
-                            _progress.value = progress.progressPercentage / 100f
-                        }
-                    }
-            }
-        }
-    }
-
-    fun toggleWorkoutCompletion(workout: Workout) {
-        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
             try {
-                val updatedWorkout = workout.copy(isCompleted = !workout.isCompleted)
-                repository.updateWorkout(updatedWorkout)
-                Log.d("MemberWorkoutViewModel", "Workout completion toggled: ${updatedWorkout.isCompleted}")
-                
-                // Update progress in database
-                _traineeId.value?.let { id ->
-                    // Get the current list of workouts excluding the one being toggled
-                    val otherWorkouts = _workouts.value.filter { it.id != workout.id }
-                    // Count completed workouts from other workouts
-                    val otherCompletedCount = otherWorkouts.count { it.isCompleted }
-                    // Add 1 if the current workout is being marked as completed
-                    val completedCount = otherCompletedCount + if (updatedWorkout.isCompleted) 1 else 0
-                    val totalCount = _workouts.value.size
-                    
-                    val traineeProgress = TraineeProgress(
-                        traineeId = id.toString(),
-                        completedWorkouts = completedCount,
-                        totalWorkouts = totalCount,
-                        lastUpdated = System.currentTimeMillis()
-                    )
-                    
-                    traineeProgressRepository.insertProgress(traineeProgress)
-                    Log.d("MemberWorkoutViewModel", "Progress updated: ${traineeProgress.progressPercentage}%")
+                Log.d(TAG, "Making API call to get user workouts")
+                workoutRepository.getUserWorkouts(userId).onSuccess { workoutList ->
+                    Log.d(TAG, "Successfully loaded ${workoutList.size} workouts")
+                    _workouts.value = workoutList
+                }.onFailure { e ->
+                    Log.e(TAG, "Failed to load workouts", e)
+                    _error.value = e.message ?: "Failed to load workouts"
                 }
             } catch (e: Exception) {
-                Log.e("MemberWorkoutViewModel", "Error toggling workout completion", e)
+                Log.e(TAG, "Unexpected error while loading workouts", e)
+                _error.value = e.message ?: "An unexpected error occurred"
+            } finally {
+                _isLoading.value = false
+                Log.d(TAG, "Finished loading workouts")
             }
         }
     }
 
-    private fun updateProgress(workouts: List<Workout>) {
-        if (workouts.isEmpty()) {
-            _progress.value = 0f
-            return
+    fun toggleWorkoutCompletion(workoutId: Int) {
+        Log.d(TAG, "Toggling completion for workout ID: $workoutId")
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                Log.d(TAG, "Making API call to toggle workout completion")
+                workoutRepository.toggleWorkoutCompletion(workoutId).onSuccess { updatedWorkout ->
+                    Log.d(TAG, "Successfully updated workout completion status")
+                    _workouts.value = _workouts.value.map { 
+                        if (it.id == workoutId) updatedWorkout else it 
+                    }
+                }.onFailure { e ->
+                    Log.e(TAG, "Failed to update workout completion", e)
+                    _error.value = e.message ?: "Failed to update workout"
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error while toggling workout completion", e)
+                _error.value = e.message ?: "An unexpected error occurred"
+            } finally {
+                _isLoading.value = false
+                Log.d(TAG, "Finished toggling workout completion")
+            }
         }
-        val completedCount = workouts.count { it.isCompleted }
-        _progress.value = completedCount.toFloat() / workouts.size
-        Log.d("MemberWorkoutViewModel", "Progress updated: ${_progress.value}")
     }
-} 
+}

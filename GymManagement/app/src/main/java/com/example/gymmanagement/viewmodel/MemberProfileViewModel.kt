@@ -1,41 +1,44 @@
 package com.example.gymmanagement.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.gymmanagement.data.model.UserProfile
 import com.example.gymmanagement.data.repository.UserRepository
+import com.example.gymmanagement.data.repository.UserRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MemberProfileViewModel(
-    private val repository: UserRepository
+    private val context: Context,
+    private val userRepository: UserRepository = UserRepositoryImpl(context)
 ) : ViewModel() {
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
-    val userProfile: StateFlow<UserProfile?> = _userProfile
+    val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
-    suspend fun getUserProfile(id: Int): UserProfile? {
-        val profile = repository.getUserProfileById(id)
-        _userProfile.value = profile
-        return profile
-    }
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    fun updateUserProfile(
-        email: String,
-        name: String,
-        phone: String? = null,
-        address: String? = null,
-        role: String = "member" // Default to member
-    ) {
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun getUserProfileByEmail(email: String) {
         viewModelScope.launch {
-            repository.getUserProfileByEmail(email)?.let { existingProfile ->
-                val updatedProfile = existingProfile.copy(
-                    name = name,
-                    role = role
-                )
-                repository.updateUserProfile(updatedProfile)
-                _userProfile.value = updatedProfile
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val profile = userRepository.getUserProfile(email)
+                if (profile != null) {
+                    _userProfile.value = profile
+                } else {
+                    _error.value = "Profile not found"
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "An unexpected error occurred"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -46,33 +49,41 @@ class MemberProfileViewModel(
         age: Int?,
         height: Float?,
         weight: Float?,
-        phone: String? = null,
-        address: String? = null,
-        role: String = "member" // Default to member
+        role: String = "member"
     ) {
         viewModelScope.launch {
-            repository.getUserProfileByEmail(email)?.let { existingProfile ->
-                val bmi = calculateBMI(height, weight)
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val currentProfile = _userProfile.value
+                if (currentProfile == null) {
+                    _error.value = "Current profile not loaded"
+                    _isLoading.value = false
+                    return@launch
+                }
 
-                val updatedProfile = existingProfile.copy(
+                val bmi = calculateBMI(height, weight)
+                val updatedProfile = currentProfile.copy(
                     name = name,
                     age = age,
                     height = height,
                     weight = weight,
                     bmi = bmi,
-                    role = role,
-                    joinDate = existingProfile.joinDate // Preserve the original join date
+                    role = role
                 )
-                repository.updateUserProfile(updatedProfile)
-                _userProfile.value = updatedProfile
-            }
-        }
-    }
 
-    fun getUserProfileByEmail(email: String) {
-        viewModelScope.launch {
-            val profile = repository.getUserProfileByEmail(email)
-            _userProfile.value = profile
+                userRepository.updateUserProfile(currentProfile.id, updatedProfile)
+                    .onSuccess { profile ->
+                        _userProfile.value = profile
+                    }
+                    .onFailure { e ->
+                        _error.value = e.message ?: "Failed to update profile"
+                    }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "An unexpected error occurred"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
@@ -81,16 +92,4 @@ class MemberProfileViewModel(
         val heightM = heightCm / 100f
         return weightKg / (heightM * heightM)
     }
-    
-    class Factory(
-        private val repository: UserRepository
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(MemberProfileViewModel::class.java)) {
-                return MemberProfileViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
-} 
+}

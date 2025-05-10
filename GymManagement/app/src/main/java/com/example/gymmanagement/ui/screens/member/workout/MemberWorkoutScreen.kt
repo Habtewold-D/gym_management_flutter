@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,28 +18,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.gymmanagement.data.model.Workout
+import com.example.gymmanagement.data.model.WorkoutResponse
 import com.example.gymmanagement.viewmodel.MemberWorkoutViewModel
-import com.example.gymmanagement.ui.theme.GymManagementAppTheme
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.foundation.clickable
 
 private val DeepBlue = Color(0xFF0000CD)
 private val Green = Color(0xFF4CAF50)
 
 @Composable
 fun MemberWorkoutScreen(
-    viewModel: MemberWorkoutViewModel
+    viewModel: MemberWorkoutViewModel,
+    userId: Int
 ) {
+    val TAG = "MemberWorkoutScreen"
     val workouts by viewModel.workouts.collectAsState()
-    val progress by viewModel.progress.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
-    // Add logging
-    LaunchedEffect(workouts) {
-        Log.d("MemberWorkoutScreen", "Current workouts: $workouts")
+    Log.d(TAG, "Initializing MemberWorkoutScreen for user ID: $userId")
+
+    LaunchedEffect(userId) {
+        Log.d(TAG, "Loading workouts for user ID: $userId")
+        viewModel.loadWorkouts(userId)
     }
 
     Column(
@@ -49,98 +48,72 @@ fun MemberWorkoutScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Top App Bar with "Daily workout"
+        // Top App Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A18C6))
+                .background(DeepBlue)
                 .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
             Text(
-                text = "Daily workout",
+                text = "Daily Workout",
                 color = Color.White,
                 fontSize = 28.sp,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         }
 
-        // Progress Section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        when {
+            isLoading -> {
+                Log.d(TAG, "Loading state: true")
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            error != null -> {
+                Log.e(TAG, "Error state: ${error}")
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Today's Progress",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = DeepBlue
+                        text = error ?: "An error occurred",
+                        color = Color.Red,
+                        textAlign = TextAlign.Center
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = progress,
+            }
+            workouts.isEmpty() -> {
+                Log.d(TAG, "No workouts available")
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = DeepBlue,
-                    trackColor = Color(0xFFE0E0E0)
-                )
-            }
-        }
-
-        // "Your Workouts" Section
-        Text(
-            text = "Your Workouts",
-            modifier = Modifier.padding(horizontal = 16.dp),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = DeepBlue
-        )
-
-        if (workouts.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No workouts assigned yet.\nCheck back later for your personalized workout plan!",
-                    textAlign = TextAlign.Center,
-                    fontSize = 16.sp,
-                    color = Color.Gray
-                )
-            }
-        } else {
-            // Workouts List
-            LazyColumn(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(workouts) { workout ->
-                    WorkoutCard(
-                        workout = workout,
-                        onToggleCompletion = { viewModel.toggleWorkoutCompletion(workout) }
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No workouts assigned yet.\nCheck back later for your personalized workout plan!",
+                        textAlign = TextAlign.Center,
+                        fontSize = 16.sp,
+                        color = Color.Gray
                     )
+                }
+            }
+            else -> {
+                Log.d(TAG, "Displaying ${workouts.size} workouts")
+                LazyColumn(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(workouts) { workout ->
+                        WorkoutCard(
+                            workout = workout,
+                            onToggleCompletion = { viewModel.toggleWorkoutCompletion(workout.id) }
+                        )
+                    }
                 }
             }
         }
@@ -150,7 +123,7 @@ fun MemberWorkoutScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutCard(
-    workout: Workout,
+    workout: WorkoutResponse,
     onToggleCompletion: () -> Unit
 ) {
     Card(
@@ -208,7 +181,13 @@ fun WorkoutCard(
                     modifier = Modifier
                         .height(36.dp)
                         .wrapContentWidth()
-                        .clickable(enabled = !workout.isCompleted) { onToggleCompletion() }
+                        .then(
+                            if (!workout.isCompleted) {
+                                Modifier.clickable { onToggleCompletion() }
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     Box(
                         modifier = Modifier
@@ -263,14 +242,9 @@ fun WorkoutCard(
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-fun WorkoutInfo(text: String) {
-    Text(
-        text = text,
-        color = Color.White,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium
-    )
+fun MemberWorkoutScreenPreview() {
+    val viewModel = MemberWorkoutViewModel()
+    MemberWorkoutScreen(viewModel = viewModel, userId = 1)
 }
-
-

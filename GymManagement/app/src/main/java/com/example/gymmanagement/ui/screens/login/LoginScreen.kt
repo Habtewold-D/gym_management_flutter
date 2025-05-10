@@ -1,6 +1,5 @@
 package com.example.gymmanagement.ui.screens.login
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,10 +28,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import com.example.gymmanagement.R
-import com.example.gymmanagement.navigation.AppRoutes
 import com.example.gymmanagement.viewmodel.AuthViewModel
+import com.example.gymmanagement.navigation.AppRoutes
+import androidx.navigation.NavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,23 +40,29 @@ fun LoginScreen(
     viewModel: AuthViewModel,
     onLoginSuccess: (Boolean) -> Unit
 ) {
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val isAuthenticated by viewModel.isAuthenticated.collectAsState()
+    val userData by viewModel.userData.collectAsState()
+    
     val scrollState = rememberScrollState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
-    val loginError by viewModel.loginError.collectAsState()
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
     val context = LocalContext.current
-    var passwordVisible by remember { mutableStateOf(false) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
 
-    // Observe login state
-    LaunchedEffect(isLoggedIn, currentUser) {
-        if (isLoggedIn && currentUser != null) {
-            val isAdmin = currentUser!!.role.lowercase() == "admin"
-            Log.d("LoginScreen", "Login successful for user: ${currentUser!!.email}, isAdmin: $isAdmin")
-            onLoginSuccess(isAdmin)
-            Toast.makeText(context, "Welcome ${currentUser!!.name}", Toast.LENGTH_SHORT).show()
+    // Handle authentication state changes
+    LaunchedEffect(isAuthenticated, userData) {
+        if (isAuthenticated && userData != null) {
+            onLoginSuccess(userData?.user?.role?.lowercase() == "admin")
+        }
+    }
+
+    // Show error toast
+    LaunchedEffect(error) {
+        error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -83,7 +88,7 @@ fun LoginScreen(
             )
 
             IconButton(
-                onClick = { navController.navigateUp() },
+                onClick = { navController.navigate(AppRoutes.REGISTER) },
                 modifier = Modifier
                     .padding(16.dp)
                     .align(Alignment.TopStart)
@@ -157,12 +162,12 @@ fun LoginScreen(
                     .fillMaxWidth()
                     .padding(bottom = if (showError && viewModel.validatePassword(password) != null) 4.dp else 16.dp),
                 singleLine = true,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
                 trailingIcon = {
-                    val image = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
-                    val description = if (passwordVisible) "Hide password" else "Show password"
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    val image = if (isPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                    val description = if (isPasswordVisible) "Hide password" else "Show password"
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                         Icon(imageVector = image, contentDescription = description)
                     }
                 },
@@ -191,25 +196,30 @@ fun LoginScreen(
                     if (viewModel.validateEmail(email) == null &&
                         viewModel.validatePassword(password) == null
                     ) {
-                        viewModel.login(
-                            email = email,
-                            password = password,
-                            onSuccess = {
-                                Log.d("LoginScreen", "Login successful")
-                            },
-                            onError = { error ->
-                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                        viewModel.login(email, password)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0000CD)),
-                shape = RoundedCornerShape(8.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0000CD)
+                ),
+                shape = RoundedCornerShape(8.dp),
+                enabled = !isLoading
             ) {
-                Text("Login", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White
+                    )
+                } else {
+                    Text(
+                        text = "Login",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             // Register Link
@@ -234,13 +244,6 @@ fun LoginScreen(
                     }
                 )
             }
-        }
-    }
-
-    // Show login error toast
-    loginError?.let { error ->
-        if (error.isNotEmpty()) {
-            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
         }
     }
 }

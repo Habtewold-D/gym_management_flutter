@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,6 +37,8 @@ fun MemberProfileScreen(
 ) {
     var isEditing by remember { mutableStateOf(false) }
     val userProfile by viewModel.userProfile.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
     LaunchedEffect(userEmail) {
         viewModel.getUserProfileByEmail(userEmail)
@@ -71,54 +74,78 @@ fun MemberProfileScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Only show the icon when not editing
-        if (!isEditing) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
+        when {
+            isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .size(150.dp)
-                        .clip(CircleShape)
-                        .border(8.dp, Color(0xFF1A18C6), CircleShape),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color(0xFF1A18C6),
-                        modifier = Modifier.size(100.dp)
+                    CircularProgressIndicator()
+                }
+            }
+            error != null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = error ?: "An error occurred",
+                        color = Color.Red,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
+            else -> {
+                Spacer(modifier = Modifier.height(24.dp))
 
-        userProfile?.let { profile ->
-            if (!isEditing) {
-                DisplayProfile(
-                    profile = profile,
-                    onEditClick = { isEditing = true }
-                )
-            } else {
-                EditProfile(
-                    profile = profile,
-                    onSave = { updatedProfile ->
-                        viewModel.updateUserProfileWithBMI(
-                            email = updatedProfile.email,
-                            name = updatedProfile.name,
-                            age = updatedProfile.age,
-                            height = updatedProfile.height,
-                            weight = updatedProfile.weight,
-                            role = updatedProfile.role
+                // Only show the icon when not editing
+                if (!isEditing) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(150.dp)
+                                .clip(CircleShape)
+                                .border(8.dp, Color(0xFF1A18C6), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile",
+                                tint = Color(0xFF1A18C6),
+                                modifier = Modifier.size(100.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                userProfile?.let { profile ->
+                    if (!isEditing) {
+                        DisplayProfile(
+                            profile = profile,
+                            onEditClick = { isEditing = true }
                         )
-                        isEditing = false
-                    },
-                    onCancel = { isEditing = false }
-                )
+                    } else {
+                        EditProfile(
+                            profile = profile,
+                            onSave = { updatedProfile ->
+                                viewModel.updateUserProfileWithBMI(
+                                    email = updatedProfile.email,
+                                    name = updatedProfile.name,
+                                    age = updatedProfile.age,
+                                    height = updatedProfile.height,
+                                    weight = updatedProfile.weight,
+                                    role = updatedProfile.role
+                                )
+                                isEditing = false
+                            },
+                            onCancel = { isEditing = false }
+                        )
+                    }
+                }
             }
         }
     }

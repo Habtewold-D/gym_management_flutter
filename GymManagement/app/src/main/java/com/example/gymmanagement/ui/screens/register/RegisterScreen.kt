@@ -1,5 +1,6 @@
 package com.example.gymmanagement.ui.screens.register
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +35,11 @@ fun RegisterScreen(
     navController: NavController,
     viewModel: AuthViewModel
 ) {
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val isAuthenticated by viewModel.isAuthenticated.collectAsState()
+    val userData by viewModel.userData.collectAsState()
+    
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -42,9 +48,51 @@ fun RegisterScreen(
     var height by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
-    val registerError by viewModel.registerError.collectAsState()
+    var isPasswordVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Collect the navigation state
+    val navigateToMemberWorkout by viewModel.navigateToMemberWorkout.collectAsState()
+
+    // Handle authentication state changes
+    LaunchedEffect(isAuthenticated, userData) {
+        if (isAuthenticated && userData != null) {
+            // Always navigate to member workout for now
+            navController.navigate(AppRoutes.MEMBER_WORKOUT) {
+                popUpTo(AppRoutes.REGISTER) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // Show error toast with longer duration
+    LaunchedEffect(error) {
+        error?.let {
+            Log.e("RegisterScreen", "Registration error: $it")
+            errorMessage = it
+            showError = true
+            // Show toast for longer duration (5 seconds)
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Add error dialog that stays until dismissed
+    if (showError && errorMessage != null) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("Registration Error") },
+            text = { Text(errorMessage!!) },
+            confirmButton = {
+                TextButton(
+                    onClick = { showError = false }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -279,44 +327,48 @@ fun RegisterScreen(
             Button(
                 onClick = {
                     showError = true
-                    if (password != confirmPassword) {
-                        Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
                     if (viewModel.validateName(name) == null &&
                         viewModel.validateEmail(email) == null &&
                         viewModel.validatePassword(password) == null &&
                         viewModel.validateAge(age) == null &&
                         viewModel.validateHeight(height) == null &&
-                        viewModel.validateWeight(weight) == null
+                        viewModel.validateWeight(weight) == null &&
+                        password == confirmPassword
                     ) {
                         viewModel.register(
+                            name = name,
                             email = email,
                             password = password,
-                            name = name,
+                            confirmPassword = confirmPassword,
                             age = age,
                             height = height,
-                            weight = weight,
-                            onSuccess = {
-                                Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
-                                navController.navigate(AppRoutes.LOGIN) {
-                                    popUpTo(AppRoutes.REGISTER) { inclusive = true }
-                                }
-                            },
-                            onError = { error ->
-                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                            }
+                            weight = weight
                         )
                     }
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0000CD)),
-                shape = RoundedCornerShape(4.dp)
+                    .padding(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0000CD)
+                ),
+                shape = RoundedCornerShape(28.dp)
             ) {
-                Text("Register", fontSize = 20.sp)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Register",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             // --- Login Link ---
@@ -337,19 +389,10 @@ fun RegisterScreen(
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
                     modifier = Modifier.clickable {
-                        navController.navigate(AppRoutes.LOGIN) {
-                            popUpTo(AppRoutes.REGISTER) { inclusive = true }
-                        }
+                        navController.navigate(AppRoutes.LOGIN)
                     }
                 )
             }
-        }
-    }
-
-    // Toast error
-    registerError?.let { error ->
-        if (error.isNotEmpty()) {
-            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
         }
     }
 }

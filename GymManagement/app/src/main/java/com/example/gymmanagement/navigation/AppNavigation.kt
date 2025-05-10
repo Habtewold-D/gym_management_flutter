@@ -12,35 +12,30 @@ import androidx.navigation.compose.rememberNavController
 import com.example.gymmanagement.ui.screens.splash.SplashScreen
 import com.example.gymmanagement.ui.screens.login.LoginScreen
 import com.example.gymmanagement.ui.screens.register.RegisterScreen
-import com.example.gymmanagement.ui.screens.admin.AdminScreen
+//import com.example.gymmanagement.ui.screens.admin.AdminScreen
 import com.example.gymmanagement.ui.screens.member.MemberScreen
-import com.example.gymmanagement.viewmodel.AuthViewModel
 import com.example.gymmanagement.GymManagementApp
-import com.example.gymmanagement.data.model.UserEntity
-import androidx.compose.runtime.State
-import androidx.compose.ui.platform.LocalContext
+import com.example.gymmanagement.viewmodel.AuthViewModel
 
 @Composable
 fun AppNavigation(app: GymManagementApp) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.provideFactory(app))
-    
-    val isLoggedIn: State<Boolean> = authViewModel.isLoggedIn.collectAsState()
-    val currentUser: State<UserEntity?> = authViewModel.currentUser.collectAsState()
 
-    // Handle initial navigation based on login state
-    LaunchedEffect(isLoggedIn.value, currentUser.value) {
-        if (isLoggedIn.value && currentUser.value != null) {
-            if (currentUser.value?.role?.lowercase() == "admin") {
-                navController.navigate(AppRoutes.ADMIN_WORKOUT) {
-                    popUpTo(AppRoutes.SPLASH) { inclusive = true }
-                    launchSingleTop = true
-                }
+    val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
+    val userData by authViewModel.userData.collectAsState()
+
+    // Handle initial navigation based on authentication state
+    LaunchedEffect(isAuthenticated, userData) {
+        if (isAuthenticated && userData != null) {
+            val route = if (userData?.user?.role?.lowercase() == "admin") {
+                AppRoutes.ADMIN_WORKOUT
             } else {
-                navController.navigate(AppRoutes.MEMBER_WORKOUT) {
-                    popUpTo(AppRoutes.SPLASH) { inclusive = true }
-                    launchSingleTop = true
-                }
+                AppRoutes.MEMBER_WORKOUT
+            }
+            navController.navigate(route) {
+                popUpTo(AppRoutes.SPLASH) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -78,33 +73,33 @@ fun AppNavigation(app: GymManagementApp) {
         }
 
         // Admin Routes
-        composable(AppRoutes.ADMIN_WORKOUT) {
-            AdminScreen(
-                navController = navController,
-                viewModel = authViewModel
-            )
-        }
+//        composable(AppRoutes.ADMIN_WORKOUT) {
+//            AdminScreen(
+//                navController = navController,
+//                viewModel = authViewModel
+//            )
+//        }
+//
+//        composable(AppRoutes.ADMIN_EVENT) {
+//            AdminScreen(
+//                navController = navController,
+//                viewModel = authViewModel
+//            )
+//        }
 
-        composable(AppRoutes.ADMIN_EVENT) {
-            AdminScreen(
-                navController = navController,
-                viewModel = authViewModel
-            )
-        }
-
-        composable(AppRoutes.ADMIN_PROGRESS) {
-            AdminScreen(
-                navController = navController,
-                viewModel = authViewModel
-            )
-        }
-
-        composable(AppRoutes.ADMIN_MEMBER) {
-            AdminScreen(
-                navController = navController,
-                viewModel = authViewModel
-            )
-        }
+//        composable(AppRoutes.ADMIN_PROGRESS) {
+//            AdminScreen(
+//                navController = navController,
+//                viewModel = authViewModel
+//            )
+//        }
+//
+//        composable(AppRoutes.ADMIN_MEMBER) {
+//            AdminScreen(
+//                navController = navController,
+//                viewModel = authViewModel
+//            )
+//        }
 
         // Member Routes
         composable(AppRoutes.MEMBER_WORKOUT) {
