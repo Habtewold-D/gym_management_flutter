@@ -18,4 +18,7 @@ interface UserApi {
 
     @GET("users/email/{email}")
     suspend fun getUserByEmail(@Path("email") email: String): UserProfile
+
+    @DELETE("users/{id}")
+    suspend fun deleteUser(@Path("id") id: Int)
 } 

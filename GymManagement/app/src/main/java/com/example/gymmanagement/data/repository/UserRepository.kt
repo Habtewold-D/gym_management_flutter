@@ -23,6 +23,8 @@ interface UserRepository {
     suspend fun getUserProfile(email: String): UserProfile?
 
     suspend fun getUserByEmail(email: String): UserProfile?
+
+    suspend fun deleteUser(userId: Int): Result<Unit>
 }
 
 class UserRepositoryImpl(
@@ -129,6 +131,15 @@ class UserRepositoryImpl(
             response
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun deleteUser(userId: Int): Result<Unit> {
+        return try {
+            userApi.deleteUser(userId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

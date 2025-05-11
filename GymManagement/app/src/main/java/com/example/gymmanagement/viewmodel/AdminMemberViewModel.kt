@@ -47,8 +47,12 @@ class AdminMemberViewModel(
             try {
                 _isLoading.value = true
                 _error.value = null
-                // Since we don't have a direct delete endpoint, we'll just refresh the list
-                loadMembers()
+                val result = repository.deleteUser(profile.id)
+                result.onSuccess {
+                    loadMembers()
+                }.onFailure { e ->
+                    _error.value = e.message ?: "Failed to delete member"
+                }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to delete member"
             } finally {
