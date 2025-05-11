@@ -86,7 +86,7 @@ export class WorkoutsService {
     return {
       totalWorkouts,
       completedWorkouts,
-      completionRate: totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0,
+      completionRate: totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0,
     };
   }
 }

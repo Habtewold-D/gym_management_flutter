@@ -583,7 +583,7 @@ fun WorkoutCard(
     workout: WorkoutResponse,
     onEditClick: (WorkoutResponse) -> Unit
 ) {
-    Log.d("WorkoutCard", "Displaying workout with userId: ${workout.user.id}")
+    Log.d("WorkoutCard", "Displaying workout with userId: ${workout.user?.id ?: 0}")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -642,7 +642,7 @@ fun WorkoutCard(
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    text = "${workout.user.id}",
+                    text = "${workout.user?.id ?: 0}",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color.Black,

@@ -117,14 +117,17 @@ export class WorkoutsController {
     // Get progress for each member
     const progressPromises = members.map(async (member) => {
       const stats = await this.workoutsService.getWorkoutStats(member.id);
-      return {
+      this.logger.log(`User ${member.id} completionRate: ${stats.completionRate} (type: ${typeof stats.completionRate})`);
+      const progress = {
         userId: member.id,
         name: member.name,
         email: member.email,
         totalWorkouts: stats.totalWorkouts,
         completedWorkouts: stats.completedWorkouts,
-        progressPercentage: stats.completionRate,
+        progressPercentage: Math.round(stats.completionRate),
       };
+      this.logger.log(`User ${member.id} progressPercentage: ${progress.progressPercentage} (type: ${typeof progress.progressPercentage})`);
+      return progress;
     });
 
     return Promise.all(progressPromises);
