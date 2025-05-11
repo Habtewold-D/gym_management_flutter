@@ -16,8 +16,12 @@ export class EventsController {
 
   @Post()
   @Roles(Role.ADMIN)
-  create(@Body() createEventDto: CreateEventDto, @Request() req) {
-    return this.eventsService.create(createEventDto, req.user.id);
+  async create(@Body() createEventDto: CreateEventDto, @Request() req) {
+    const event = await this.eventsService.create(createEventDto, req.user.id);
+    return {
+      ...event,
+      createdBy: event.createdBy.id,
+    };
   }
 
   @Get()
@@ -31,17 +35,25 @@ export class EventsController {
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.MEMBER)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.eventsService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const event = await this.eventsService.findOne(id);
+    return {
+      ...event,
+      createdBy: event.createdBy.id,
+    };
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN)
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateEventDto: UpdateEventDto,
   ) {
-    return this.eventsService.update(id, updateEventDto);
+    const event = await this.eventsService.update(id, updateEventDto);
+    return {
+      ...event,
+      createdBy: event.createdBy.id,
+    };
   }
 
   @Delete(':id')

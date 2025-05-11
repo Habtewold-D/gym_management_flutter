@@ -134,109 +134,104 @@ fun EventCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(200.dp)
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
+            // Background image
             if (!event.imageUri.isNullOrEmpty()) {
                 AsyncImage(
                     model = event.imageUri,
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Title pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .padding(bottom = 4.dp)
-            ) {
+            } else {
                 Box(
                     modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .fillMaxSize()
+                        .background(Color.LightGray)
+                )
+            }
+
+            // Overlays: title, date, time, location
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                // Title
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(50),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Text(
                         text = event.title,
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }
-            }
-
-            // Date pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                // Date, Time, Location
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = event.date,
-                            color = Color.Black,
-                            fontSize = 15.sp
-                        )
+                    Surface(
+                        color = Color.White.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(50),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = event.date,
+                                color = Color.Black,
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Surface(
+                        color = Color.White.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(50),
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = event.time,
+                                color = Color.Black,
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
-            }
-
-            // Time pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = event.time,
-                            color = Color.Black,
-                            fontSize = 15.sp
-                        )
-                    }
-                }
-            }
-
-            // Location pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(50),
+                    shadowElevation = 2.dp
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -249,7 +244,8 @@ fun EventCard(
                         Text(
                             text = event.location,
                             color = Color.Black,
-                            fontSize = 15.sp
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }

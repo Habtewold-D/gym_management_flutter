@@ -41,7 +41,7 @@ class EventRepositoryImpl(
         Result.failure(e)
     }
 
-    override suspend fun updateEvent(id: Int, event: EventUpdateRequest, imageFile: File?): Result<EventResponse> = try {
+    suspend fun updateEvent(id: Int, event: EventUpdateRequest, imageFile: File?): Result<EventResponse> = try {
         val response = if (imageFile != null) {
             val requestFile = imageFile.asRequestBody("image/*".toMediaTypeOrNull())
             val imagePart = MultipartBody.Part.createFormData("image", imageFile.name, requestFile)
@@ -70,5 +70,9 @@ class EventRepositoryImpl(
         Result.success(response)
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    override suspend fun updateEvent(eventId: Int, updateRequest: EventUpdateRequest): Result<EventResponse> {
+        return updateEvent(eventId, updateRequest, null)
     }
 } 

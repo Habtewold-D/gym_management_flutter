@@ -24,11 +24,8 @@ interface EventApi {
         @Part image: MultipartBody.Part
     ): EventResponse
 
-    @PUT("events/{id}")
-    suspend fun updateEvent(
-        @Path("id") id: Int,
-        @Body event: EventUpdateRequest
-    ): EventResponse
+    @PATCH("events/{id}")
+    suspend fun updateEvent(@Path("id") id: Int, @Body updateRequest: EventUpdateRequest): EventResponse
 
     @Multipart
     @PUT("events/{id}/with-image")

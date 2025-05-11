@@ -47,7 +47,7 @@ class AuthViewModel(
     }
 
     private fun loadSession() {
-        viewModelScope.launch {
+            viewModelScope.launch {
             try {
                 val sharedPreferences = app.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
                 val userId = sharedPreferences.getInt("user_id", -1)
@@ -282,14 +282,14 @@ class AuthViewModel(
         viewModelScope.launch {
             try {
                 val sharedPreferences = app.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-                sharedPreferences.edit().apply {
+            sharedPreferences.edit().apply {
                     putInt("user_id", user.id)
-                    putString("user_email", user.email)
+                putString("user_email", user.email)
                     putString("user_name", user.name)
                     putString("user_role", user.role)
                     putString("access_token", _userData.value?.access_token)
-                    apply()
-                }
+                apply()
+            }
                 // Set the access token in ApiClient
                 _userData.value?.access_token?.let { token ->
                     ApiClient.setAccessToken(token)
@@ -297,8 +297,8 @@ class AuthViewModel(
                 Log.d(TAG, "Session saved for user: ${user.email}")
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving session", e)
-            }
         }
+    }
     }
 
     fun resetState() {

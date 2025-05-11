@@ -33,6 +33,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import java.io.File
+import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 private val DeepBlue = Color(0xFF0000CD)
 private val LightBlue = Color(0xFFE6E9FD)
@@ -49,136 +52,157 @@ fun AdminEventScreen(
     val events by viewModel.events.collectAsState(initial = emptyList())
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val successMessage = viewModel.successMessage
+    val validationError = viewModel.validationError
 
     LaunchedEffect(Unit) {
         viewModel.loadEvents()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Top Navigation Bar
-        Surface(
-            color = DeepBlue,
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Events",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = "Add Event",
-                style = MaterialTheme.typography.titleMedium.copy(color = Color.Blue),
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-
-            EventForm(
-                onEventCreated = { event ->
-                    viewModel.createEvent(
-                        title = event.title,
-                        date = event.date,
-                        time = event.time,
-                        location = event.location
-                    )
-                },
-                userId = userId
-            )
-
-            Spacer(modifier = Modifier.height(1.dp))
-
-            Text(
-                text = "Event List",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 1.dp)
-            )
-
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else if (error != null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = error ?: "An error occurred",
-                        color = Color.Red,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else if (events.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No events available",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.Gray
-                    )
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(events) { event ->
-                        EventCard(
-                            event = event,
-                            onEditClick = {
-                                selectedEvent = event
-                                showEditDialog = true
-                            }
-                        )
-                    }
-                }
-            }
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) {
+            snackbarHostState.showSnackbar(successMessage)
+            viewModel.setSuccessMessage(null)
         }
     }
 
-    if (showEditDialog) {
-        EditEventDialog(
-            event = selectedEvent,
-            onDismissRequest = { showEditDialog = false },
-            onConfirm = { updatedEvent ->
-                if (updatedEvent.title == "DELETE_EVENT") {
-                    selectedEvent?.id?.let { viewModel.deleteEvent(it) }
-                } else {
-                    selectedEvent?.id?.let { id ->
-                        viewModel.updateEvent(
-                            id = id,
-                            title = updatedEvent.title,
-                            date = updatedEvent.date,
-                            time = updatedEvent.time,
-                            location = updatedEvent.location
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // ... other scaffold params ...
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+            // Top Navigation Bar
+            Surface(
+                color = DeepBlue,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Events",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Add Event",
+                    style = MaterialTheme.typography.titleMedium.copy(color = Color.Blue),
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
+                EventForm(
+                    onEventCreated = { eventRequest ->
+                        if (isEventFormValid(eventRequest.title, eventRequest.date, eventRequest.time, eventRequest.location)) {
+                            viewModel.createEvent(eventRequest) { createdEvent ->
+                                viewModel.addEventLocally(createdEvent)
+                            }
+                        } else {
+                            viewModel.setValidationError("Please fill in all fields.")
+                        }
+                    },
+                    userId = userId
+                )
+
+                Spacer(modifier = Modifier.height(1.dp))
+
+                Text(
+                    text = "Event List",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 1.dp)
+                )
+
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (error != null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = error ?: "An error occurred",
+                            color = Color.Red,
+                            textAlign = TextAlign.Center
                         )
                     }
+                } else if (events.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No events available",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(events) { event ->
+                            EventCard(
+                                event = event,
+                                onEditClick = {
+                                    selectedEvent = event
+                                    showEditDialog = true
+                                }
+                            )
+                        }
+                    }
                 }
-                showEditDialog = false
             }
-        )
+        }
+
+        if (showEditDialog) {
+            EditEventDialog(
+                event = selectedEvent,
+                onDismissRequest = { showEditDialog = false },
+                onConfirm = { updatedEvent ->
+                    selectedEvent?.id?.let { id ->
+                        if (updatedEvent.title == "DELETE_EVENT") {
+                            viewModel.deleteEvent(id)
+                            viewModel.setSuccessMessage("Event deleted successfully!")
+                        } else {
+                            viewModel.updateEvent(id, updatedEvent)
+                            viewModel.setSuccessMessage("Event updated successfully!")
+                        }
+                    }
+                    showEditDialog = false
+                }
+            )
+        }
+
+        if (validationError != null) {
+            AlertDialog(
+                onDismissRequest = { viewModel.setValidationError(null) },
+                title = { Text("Validation Error") },
+                text = { Text(validationError) },
+                confirmButton = { Button(onClick = { viewModel.setValidationError(null) }) { Text("OK") } }
+            )
+        }
     }
 }
 
@@ -192,13 +216,14 @@ fun EventForm(
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var imageUri by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
     val imagePickerUtil = remember { com.example.gymmanagement.utils.ImagePicker(context) }
     val imagePicker = rememberImagePicker { uri ->
         val savedPath = imagePickerUtil.saveImageToInternalStorage(uri)
-        if (savedPath != null) imageUri = Uri.parse(savedPath)
+        Log.d("EventForm", "Saved image path: $savedPath")
+        if (savedPath != null) imageUri = savedPath
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -211,8 +236,9 @@ fun EventForm(
             contentAlignment = Alignment.Center
         ) {
             if (imageUri != null) {
+                val imageModel = if (imageUri?.startsWith("/") == true) File(imageUri) else imageUri
                 AsyncImage(
-                    model = imageUri,
+                    model = imageModel,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
@@ -292,6 +318,7 @@ fun EventForm(
         Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = {
+                Log.d("EventForm", "Creating event with imageUri: $imageUri")
                 if (title.isNotBlank() && date.isNotBlank() && time.isNotBlank() && location.isNotBlank()) {
                     onEventCreated(
                         EventRequest(
@@ -299,6 +326,7 @@ fun EventForm(
                             date = date,
                             time = time,
                             location = location,
+                            imageUri = imageUri,
                             createdBy = userId
                         )
                     )
@@ -310,10 +338,14 @@ fun EventForm(
                     imageUri = null
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            enabled = title.isNotBlank() && date.isNotBlank() && time.isNotBlank() && location.isNotBlank(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = DeepBlue
-            )
+            ),
+            shape = RoundedCornerShape(4.dp)
         ) {
             Text("Create Event", color = Color.White)
         }
@@ -368,13 +400,13 @@ fun EditEventDialog(
                 var date by remember { mutableStateOf(event?.date ?: "") }
                 var time by remember { mutableStateOf(event?.time ?: "") }
                 var location by remember { mutableStateOf(event?.location ?: "") }
-                var imageUri by remember { mutableStateOf<Uri?>(event?.imageUri?.let { Uri.parse(it) }) }
+                var imageUri by remember { mutableStateOf<String?>(event?.imageUri) }
 
                 val context = LocalContext.current
                 val imagePickerUtil = remember { com.example.gymmanagement.utils.ImagePicker(context) }
                 val imagePicker = rememberImagePicker { uri ->
                     val savedPath = imagePickerUtil.saveImageToInternalStorage(uri)
-                    if (savedPath != null) imageUri = Uri.parse(savedPath)
+                    if (savedPath != null) imageUri = savedPath
                 }
 
                 Box(
@@ -386,8 +418,9 @@ fun EditEventDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     if (imageUri != null) {
+                        val imageModel = if (imageUri?.startsWith("/") == true) File(imageUri) else imageUri
                         AsyncImage(
-                            model = imageUri,
+                            model = imageModel,
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -491,11 +524,7 @@ fun EditEventDialog(
 
                     Button(
                         onClick = {
-                            onConfirm(
-                                EventUpdateRequest(
-                                    title = "DELETE_EVENT"
-                                )
-                            )
+                            onConfirm(EventUpdateRequest(title = "DELETE_EVENT"))
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -513,15 +542,15 @@ fun EditEventDialog(
 
                     Button(
                         onClick = {
-                            if (title.isNotBlank() && date.isNotBlank() && time.isNotBlank() && location.isNotBlank()) {
-                                val updateRequest = EventUpdateRequest(
-                                    title = if (title != event?.title) title else null,
-                                    date = if (date != event?.date) date else null,
-                                    time = if (time != event?.time) time else null,
-                                    location = if (location != event?.location) location else null
-                                )
-                                onConfirm(updateRequest)
-                            }
+                            val imageToUse = imageUri ?: event?.imageUri
+                            val updateRequest = EventUpdateRequest(
+                                title = if (title != event?.title) title else null,
+                                date = if (date != event?.date) date else null,
+                                time = if (time != event?.time) time else null,
+                                location = if (location != event?.location) location else null,
+                                imageUri = imageToUse
+                            )
+                            onConfirm(updateRequest)
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -545,6 +574,9 @@ fun EventCard(
     event: EventResponse,
     onEditClick: (EventResponse) -> Unit
 ) {
+    Log.d("EventCard", "Displaying imageUri: ${event.imageUri}")
+    val file = File(event.imageUri ?: "")
+    Log.d("EventCard", "File exists: ${file.exists()}")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -555,8 +587,9 @@ fun EventCard(
         Box(modifier = Modifier.fillMaxSize()) {
             // Background Image or fallback color
             if (!event.imageUri.isNullOrEmpty()) {
+                val imageModel = File(event.imageUri)
                 AsyncImage(
-                    model = event.imageUri,
+                    model = imageModel,
                     contentDescription = null,
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop
@@ -657,4 +690,13 @@ fun EventCard(
             }
         }
     }
+}
+
+fun isEventFormValid(
+    title: String?,
+    date: String?,
+    time: String?,
+    location: String?
+): Boolean {
+    return !title.isNullOrBlank() && !date.isNullOrBlank() && !time.isNullOrBlank() && !location.isNullOrBlank()
 }

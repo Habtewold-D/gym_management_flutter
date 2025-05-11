@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class AdminEventViewModel(
     private val eventRepository: EventRepository
@@ -25,6 +28,12 @@ class AdminEventViewModel(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private var _successMessage by mutableStateOf<String?>(null)
+    val successMessage: String? get() = _successMessage
+
+    private var _validationError by mutableStateOf<String?>(null)
+    val validationError: String? get() = _validationError
 
     fun loadEvents() {
         viewModelScope.launch {
@@ -45,27 +54,16 @@ class AdminEventViewModel(
         }
     }
 
-    fun createEvent(
-        title: String,
-        date: String,
-        time: String,
-        location: String,
-        imageFile: File? = null
-    ) {
+    fun createEvent(request: EventRequest, onSuccess: (EventResponse) -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val request = EventRequest(
-                    title = title,
-                    date = date,
-                    time = time,
-                    location = location,
-                    createdBy = 0 // This will be set by the backend based on the authenticated user
-                )
-                val result = eventRepository.createEvent(request, imageFile)
-                result.onSuccess { event ->
-                    _events.value = _events.value + event
+                val result = eventRepository.createEvent(request)
+                result.onSuccess { eventResponse ->
+                    _events.value = _events.value + eventResponse
+                    setSuccessMessage("Event created successfully!")
+                    onSuccess(eventResponse)
                 }.onFailure { e ->
                     _error.value = e.message ?: "Failed to create event"
                 }
@@ -77,32 +75,19 @@ class AdminEventViewModel(
         }
     }
 
-    fun updateEvent(
-        id: Int,
-        title: String?,
-        date: String?,
-        time: String?,
-        location: String?,
-        imageFile: File? = null
-    ) {
+    fun updateEvent(eventId: Int, updateRequest: EventUpdateRequest) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val request = EventUpdateRequest(
-                    title = title,
-                    date = date,
-                    time = time,
-                    location = location
-                )
-                val result = eventRepository.updateEvent(id, request, imageFile)
-                result.onSuccess { updatedEvent ->
-                    _events.value = _events.value.map { event ->
-                        if (event.id == id) updatedEvent else event
+                eventRepository.updateEvent(eventId, updateRequest)
+                    .onSuccess { updatedEvent ->
+                        _events.value = _events.value.map { if (it.id == updatedEvent.id) updatedEvent else it }
+                        _successMessage = "Event updated successfully!"
                     }
-                }.onFailure { e ->
-                    _error.value = e.message ?: "Failed to update event"
-                }
+                    .onFailure { e ->
+                        _error.value = e.message ?: "Failed to update event"
+                    }
             } catch (e: Exception) {
                 _error.value = e.message ?: "An unexpected error occurred"
             } finally {
@@ -119,6 +104,7 @@ class AdminEventViewModel(
                 val result = eventRepository.deleteEvent(id)
                 result.onSuccess {
                     _events.value = _events.value.filter { it.id != id }
+                    setSuccessMessage("Event deleted successfully!")
                 }.onFailure { e ->
                     _error.value = e.message ?: "Failed to delete event"
                 }
@@ -128,5 +114,26 @@ class AdminEventViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun addEventLocally(newEvent: EventResponse) {
+        _events.value = _events.value
+    }
+
+    private fun isEventFormValid(
+        title: String,
+        date: String,
+        time: String,
+        location: String
+    ): Boolean {
+        return title.isNotBlank() && date.isNotBlank() && time.isNotBlank() && location.isNotBlank()
+    }
+
+    fun setSuccessMessage(message: String?) {
+        _successMessage = message
+    }
+
+    fun setValidationError(message: String?) {
+        _validationError = message
     }
 }
