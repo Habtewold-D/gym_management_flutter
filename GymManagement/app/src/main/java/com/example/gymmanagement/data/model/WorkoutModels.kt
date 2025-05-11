@@ -29,7 +29,7 @@ data class WorkoutResponse(
     val isCompleted: Boolean,
     val createdAt: String,
     val updatedAt: String,
-    val user: UserResponse
+    val userId: Int
 )
 
 data class WorkoutStatsResponse(

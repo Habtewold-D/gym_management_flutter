@@ -379,7 +379,7 @@ fun EditWorkoutDialog(
                 }
 
                 var eventTitle by remember { mutableStateOf(workout?.eventTitle ?: "") }
-                var traineeId by remember { mutableStateOf(workout?.user?.id?.toString() ?: "") }
+                var traineeId by remember { mutableStateOf(workout?.userId?.toString() ?: "") }
                 var sets by remember { mutableStateOf(workout?.sets?.toString() ?: "") }
                 var repsOrSecs by remember { mutableStateOf(workout?.repsOrSecs?.toString() ?: "") }
                 var restTime by remember { mutableStateOf(workout?.restTime?.toString() ?: "") }
@@ -583,7 +583,7 @@ fun WorkoutCard(
     workout: WorkoutResponse,
     onEditClick: (WorkoutResponse) -> Unit
 ) {
-    Log.d("WorkoutCard", "Displaying workout with userId: ${workout.user?.id ?: 0}")
+    Log.d("WorkoutCard", "Displaying workout with userId: ${workout.userId}")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -642,7 +642,7 @@ fun WorkoutCard(
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    text = "${workout.user?.id ?: 0}",
+                    text = "${workout.userId}",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color.Black,
