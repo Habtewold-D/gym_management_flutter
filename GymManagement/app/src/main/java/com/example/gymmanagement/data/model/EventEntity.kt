@@ -1,7 +1,7 @@
 package com.example.gymmanagement.data.model
 
 data class EventEntity(
-    val id: Long = 0,
+    val id: Int = 0,
     val title: String,
     val date: String,
     val time: String,

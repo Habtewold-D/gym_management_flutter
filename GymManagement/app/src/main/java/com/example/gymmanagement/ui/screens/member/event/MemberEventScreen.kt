@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -26,9 +25,11 @@ import com.example.gymmanagement.viewmodel.MemberEventViewModel
 
 private val DeepBlue = Color(0xFF0000CD)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberEventScreen(
-    viewModel: MemberEventViewModel
+    viewModel: MemberEventViewModel,
+    userId: Int
 ) {
     val events by viewModel.events.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -43,31 +44,55 @@ fun MemberEventScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Top App Bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(DeepBlue)
-                .padding(vertical = 24.dp, horizontal = 16.dp)
+        // Top Navigation Bar
+        Surface(
+            color = DeepBlue,
+            shadowElevation = 4.dp
         ) {
-            Text(
-                text = "Gym Events",
-                color = Color.White,
-                fontSize = 28.sp,
-                modifier = Modifier.align(Alignment.CenterStart)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Gym Events",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
         }
 
-        when {
-            isLoading -> {
+        // Section Header (Upcoming Events)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Upcoming Events",
+            color = DeepBlue,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 16.dp)
+        )
+        Text(
+            text = "Join us for these exciting events",
+            color = Color.Gray,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(start = 16.dp, bottom = 16.dp)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
                 }
-            }
-            error != null -> {
+            } else if (error != null) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -78,26 +103,20 @@ fun MemberEventScreen(
                         textAlign = TextAlign.Center
                     )
                 }
-            }
-            events.isEmpty() -> {
+            } else if (events.isEmpty()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No upcoming events.\nCheck back later for new events!",
-                        textAlign = TextAlign.Center,
-                        fontSize = 16.sp,
+                        text = "No upcoming events",
+                        style = MaterialTheme.typography.bodyLarge,
                         color = Color.Gray
                     )
                 }
-            }
-            else -> {
+            } else {
                 LazyColumn(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(events) { event ->
                         EventCard(event = event)
@@ -110,122 +129,127 @@ fun MemberEventScreen(
 
 @Composable
 fun EventCard(
-    event: EventResponse,
-    modifier: Modifier = Modifier
+    event: EventResponse
 ) {
     Card(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
-            .padding(12.dp),
-        shape = RoundedCornerShape(32.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            // Background image (use Coil for remote images)
-            AsyncImage(
-                model = event.imageUri, // event.imageUri should be a URL or local resource
-                contentDescription = "Event Image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-            )
-
-            // Gradient overlay for better text visibility
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0x80000000), // semi-transparent black
-                                Color(0x00000000),
-                                Color(0x80000000)
-                            ),
-                            startY = 0f,
-                            endY = Float.POSITIVE_INFINITY
-                        )
-                    )
-            )
-
-            // Content
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Title centered at the top
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    ),
+            if (!event.imageUri.isNullOrEmpty()) {
+                AsyncImage(
+                    model = event.imageUri,
+                    contentDescription = null,
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
-                // Spacer(modifier = Modifier.weight(1f))
-
-                // Date, Time, Location
-                Column(
+            // Title pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+            ) {
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Start)
-                        .padding(bottom = 8.dp)
+                        .background(Color.White, RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = event.title,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            }
+
+            // Date pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(
-                            imageVector = Icons.Default.Event,
-                            contentDescription = "Date",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.date,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            color = Color.Black,
+                            fontSize = 15.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            // Time pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             imageVector = Icons.Default.AccessTime,
-                            contentDescription = "Time",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.time,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            color = Color.Black,
+                            fontSize = 15.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            // Location pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = "Location",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.location,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            color = Color.Black,
+                            fontSize = 15.sp
                         )
                     }
                 }

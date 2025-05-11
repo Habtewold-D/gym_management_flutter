@@ -12,10 +12,16 @@ import androidx.navigation.compose.rememberNavController
 import com.example.gymmanagement.ui.screens.splash.SplashScreen
 import com.example.gymmanagement.ui.screens.login.LoginScreen
 import com.example.gymmanagement.ui.screens.register.RegisterScreen
-//import com.example.gymmanagement.ui.screens.admin.AdminScreen
+import com.example.gymmanagement.ui.screens.admin.workout.AdminWorkoutScreen
+import com.example.gymmanagement.ui.screens.admin.event.AdminEventScreen
+import com.example.gymmanagement.ui.screens.admin.AdminScreen
 import com.example.gymmanagement.ui.screens.member.MemberScreen
 import com.example.gymmanagement.GymManagementApp
 import com.example.gymmanagement.viewmodel.AuthViewModel
+import com.example.gymmanagement.viewmodel.AdminWorkoutViewModel
+import com.example.gymmanagement.viewmodel.AdminEventViewModel
+import com.example.gymmanagement.data.repository.WorkoutRepositoryImpl
+import com.example.gymmanagement.data.repository.EventRepositoryImpl
 
 @Composable
 fun AppNavigation(app: GymManagementApp) {
@@ -73,33 +79,26 @@ fun AppNavigation(app: GymManagementApp) {
         }
 
         // Admin Routes
-//        composable(AppRoutes.ADMIN_WORKOUT) {
-//            AdminScreen(
-//                navController = navController,
-//                viewModel = authViewModel
-//            )
-//        }
-//
-//        composable(AppRoutes.ADMIN_EVENT) {
-//            AdminScreen(
-//                navController = navController,
-//                viewModel = authViewModel
-//            )
-//        }
+        composable(AppRoutes.ADMIN_WORKOUT) {
+            AdminScreen(
+                navController = navController,
+                viewModel = authViewModel
+            )
+        }
 
-//        composable(AppRoutes.ADMIN_PROGRESS) {
-//            AdminScreen(
-//                navController = navController,
-//                viewModel = authViewModel
-//            )
-//        }
-//
-//        composable(AppRoutes.ADMIN_MEMBER) {
-//            AdminScreen(
-//                navController = navController,
-//                viewModel = authViewModel
-//            )
-//        }
+        composable(AppRoutes.ADMIN_EVENT) {
+            AdminScreen(
+                navController = navController,
+                viewModel = authViewModel
+            )
+        }
+
+        composable(AppRoutes.ADMIN_PROGRESS) {
+            AdminScreen(
+                navController = navController,
+                viewModel = authViewModel
+            )
+        }
 
         // Member Routes
         composable(AppRoutes.MEMBER_WORKOUT) {

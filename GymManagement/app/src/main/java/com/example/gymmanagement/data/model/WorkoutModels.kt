@@ -11,6 +11,7 @@ data class WorkoutRequest(
 )
 
 data class WorkoutUpdateRequest(
+    val id: Int,
     val eventTitle: String? = null,
     val sets: Int? = null,
     val repsOrSecs: Int? = null,
@@ -35,4 +36,13 @@ data class WorkoutStatsResponse(
     val completedWorkouts: Int,
     val averageSets: Double,
     val averageReps: Double
+)
+
+data class UserProgressResponse(
+    val userId: Int,
+    val name: String,
+    val email: String,
+    val totalWorkouts: Int,
+    val completedWorkouts: Int,
+    val progressPercentage: Int
 ) 

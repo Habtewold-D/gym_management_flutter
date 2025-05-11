@@ -1,6 +1,8 @@
 package com.example.gymmanagement.data.api
 
-import com.example.gymmanagement.data.model.*
+import com.example.gymmanagement.data.model.EventRequest
+import com.example.gymmanagement.data.model.EventResponse
+import com.example.gymmanagement.data.model.EventUpdateRequest
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
@@ -10,34 +12,35 @@ interface EventApi {
     suspend fun getAllEvents(): List<EventResponse>
 
     @GET("events/{id}")
-    suspend fun getEvent(@Path("id") id: Int): EventResponse
-
-    @GET("events/user/{userId}")
-    suspend fun getUserEvents(@Path("userId") userId: Int): List<EventResponse>
+    suspend fun getEventById(@Path("id") id: Int): EventResponse
 
     @POST("events")
     suspend fun createEvent(@Body event: EventRequest): EventResponse
 
     @Multipart
     @POST("events/with-image")
-    suspend fun createEventWithImage(@Body requestBody: MultipartBody): EventResponse
+    suspend fun createEventWithImage(
+        @Part("event") event: EventRequest,
+        @Part image: MultipartBody.Part
+    ): EventResponse
 
     @PUT("events/{id}")
-    suspend fun updateEvent(@Path("id") id: Int, @Body event: EventUpdateRequest): EventResponse
+    suspend fun updateEvent(
+        @Path("id") id: Int,
+        @Body event: EventUpdateRequest
+    ): EventResponse
 
     @Multipart
     @PUT("events/{id}/with-image")
-    suspend fun updateEventWithImage(@Path("id") id: Int, @Body requestBody: MultipartBody): EventResponse
+    suspend fun updateEventWithImage(
+        @Path("id") id: Int,
+        @Part("event") event: EventUpdateRequest,
+        @Part image: MultipartBody.Part
+    ): EventResponse
 
     @DELETE("events/{id}")
-    suspend fun deleteEvent(@Path("id") id: Int)
+    suspend fun deleteEvent(@Path("id") id: Int): Response<Unit>
 
-    @POST("events/{eventId}/join/{userId}")
-    suspend fun joinEvent(@Path("eventId") eventId: Int, @Path("userId") userId: Int): EventParticipant
-
-    @DELETE("events/{eventId}/leave/{userId}")
-    suspend fun leaveEvent(@Path("eventId") eventId: Int, @Path("userId") userId: Int)
-
-    @GET("events/{eventId}/participants")
-    suspend fun getEventParticipants(@Path("eventId") eventId: Int): List<EventParticipant>
+    @GET("events/user/{userId}")
+    suspend fun getUserEvents(@Path("userId") userId: Int): List<EventResponse>
 } 

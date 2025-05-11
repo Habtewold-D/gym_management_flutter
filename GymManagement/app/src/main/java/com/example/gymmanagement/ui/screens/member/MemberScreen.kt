@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.example.gymmanagement.data.model.UserProfile
 import com.example.gymmanagement.data.repository.EventRepositoryImpl
 import com.example.gymmanagement.viewmodel.MemberWorkoutViewModel
+import com.example.gymmanagement.data.api.ApiClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +67,7 @@ fun MemberScreen(
     val eventRepository = remember {
         try {
             Log.d(TAG, "Initializing EventRepository")
-            EventRepositoryImpl()
+            EventRepositoryImpl(ApiClient.getEventApi())
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing EventRepository", e)
             null
@@ -231,17 +232,31 @@ fun MemberScreen(
         ) {
             composable(AppRoutes.MEMBER_WORKOUT) {
                 if (memberWorkoutViewModel != null) {
-                    userData?.user?.let { user ->
-                        MemberWorkoutScreen(
-                            viewModel = memberWorkoutViewModel,
-                            userId = user.id
-                        )
-                    } ?: run {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("User data not available")
+                    val isLoading by viewModel.isLoading.collectAsState()
+                    val currentUserData = userData
+                    
+                    when {
+                        isLoading -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        currentUserData != null && currentUserData.user != null -> {
+                            MemberWorkoutScreen(
+                                viewModel = memberWorkoutViewModel,
+                                userId = currentUserData.user.id
+                            )
+                        }
+                        else -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("User data not available")
+                            }
                         }
                     }
                 } else {
@@ -255,7 +270,33 @@ fun MemberScreen(
             }
             composable(AppRoutes.MEMBER_EVENT) {
                 if (memberEventViewModel != null) {
-                    MemberEventScreen(viewModel = memberEventViewModel)
+                    val isLoading by viewModel.isLoading.collectAsState()
+                    val currentUserData = userData
+                    
+                    when {
+                        isLoading -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        currentUserData != null && currentUserData.user != null -> {
+                            MemberEventScreen(
+                                viewModel = memberEventViewModel,
+                                userId = currentUserData.user.id
+                            )
+                        }
+                        else -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("User data not available")
+                            }
+                        }
+                    }
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),

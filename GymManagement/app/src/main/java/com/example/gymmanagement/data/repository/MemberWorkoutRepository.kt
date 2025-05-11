@@ -9,7 +9,7 @@ interface MemberWorkoutRepository {
     suspend fun getWorkoutsForTrainee(traineeId: Int): Result<List<WorkoutResponse>>
     suspend fun getAllWorkouts(): Result<List<WorkoutResponse>>
     suspend fun createWorkout(workout: WorkoutRequest): Result<WorkoutResponse>
-    suspend fun updateWorkout(id: Int, workout: WorkoutUpdateRequest): Result<WorkoutResponse>
+    suspend fun updateWorkout(workout: WorkoutUpdateRequest): Result<WorkoutResponse>
     suspend fun deleteWorkout(id: Int): Result<Unit>
     suspend fun updateWorkoutCompletion(id: Int): Result<WorkoutResponse>
     suspend fun getWorkoutStats(traineeId: Int): Result<WorkoutStatsResponse>
@@ -49,9 +49,11 @@ class MemberWorkoutRepositoryImpl : MemberWorkoutRepository {
         }
     }
 
-    override suspend fun updateWorkout(id: Int, workout: WorkoutUpdateRequest): Result<WorkoutResponse> {
+    override suspend fun updateWorkout(workout: WorkoutUpdateRequest): Result<WorkoutResponse> {
         return try {
-            val response = workoutApi.updateWorkout(id, workout)
+            // First, get the workout to update to get its ID
+            val existingWorkout = workoutApi.getWorkout(workout.id)
+            val response = workoutApi.updateWorkout(existingWorkout.id, workout)
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

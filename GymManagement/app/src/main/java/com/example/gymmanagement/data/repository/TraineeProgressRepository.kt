@@ -19,18 +19,17 @@ class TraineeProgressRepositoryImpl : TraineeProgressRepository {
 
     override suspend fun getAllProgress(): Result<List<TraineeProgress>> {
         return try {
-            // Get all workouts and transform them into progress data
-            val workouts = workoutApi.getAllWorkouts()
-            val progressList = workouts.groupBy { it.userId }
-                .map { (userId, userWorkouts) ->
-                    TraineeProgress(
-                        id = userId,
-                        traineeId = userId.toString(),
-                        completedWorkouts = userWorkouts.count { it.isCompleted },
-                        totalWorkouts = userWorkouts.size
-                    )
-                }
-            Result.success(progressList)
+            val progressList = workoutApi.getAllUsersProgress()
+            Result.success(progressList.map { stats ->
+                TraineeProgress(
+                    userId = stats.userId,
+                    name = stats.name,
+                    email = stats.email,
+                    completedWorkouts = stats.completedWorkouts,
+                    totalWorkouts = stats.totalWorkouts,
+                    progressPercentage = stats.progressPercentage
+                )
+            })
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -38,14 +37,15 @@ class TraineeProgressRepositoryImpl : TraineeProgressRepository {
 
     override suspend fun getProgressById(id: Int): Result<TraineeProgress> {
         return try {
-            val workouts = workoutApi.getUserWorkouts()
-            val progress = TraineeProgress(
-                id = id,
-                traineeId = id.toString(),
-                completedWorkouts = workouts.count { it.isCompleted },
-                totalWorkouts = workouts.size
-            )
-            Result.success(progress)
+            val stats = workoutApi.getWorkoutStats(id)
+            Result.success(TraineeProgress(
+                userId = id,
+                name = "",
+                email = "",
+                completedWorkouts = stats.completedWorkouts,
+                totalWorkouts = stats.totalWorkouts,
+                progressPercentage = if (stats.totalWorkouts > 0) (stats.completedWorkouts * 100) / stats.totalWorkouts else 0
+            ))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -53,14 +53,15 @@ class TraineeProgressRepositoryImpl : TraineeProgressRepository {
 
     override suspend fun getProgressByTraineeId(traineeId: Int): Result<TraineeProgress> {
         return try {
-            val workouts = workoutApi.getUserWorkouts()
-            val progress = TraineeProgress(
-                id = traineeId,
-                traineeId = traineeId.toString(),
-                completedWorkouts = workouts.count { it.isCompleted },
-                totalWorkouts = workouts.size
-            )
-            Result.success(progress)
+            val stats = workoutApi.getWorkoutStats(traineeId)
+            Result.success(TraineeProgress(
+                userId = traineeId,
+                name = "",
+                email = "",
+                completedWorkouts = stats.completedWorkouts,
+                totalWorkouts = stats.totalWorkouts,
+                progressPercentage = if (stats.totalWorkouts > 0) (stats.completedWorkouts * 100) / stats.totalWorkouts else 0
+            ))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -81,9 +82,15 @@ class TraineeProgressRepositoryImpl : TraineeProgressRepository {
         totalWorkouts: Int
     ): Result<TraineeProgress> {
         return try {
-            // Since progress is derived from workouts, we don't need to make a separate API call
-            // Just return the current progress
-            getProgressByTraineeId(traineeId)
+            val stats = workoutApi.getWorkoutStats(traineeId)
+            Result.success(TraineeProgress(
+                userId = traineeId,
+                name = "",
+                email = "",
+                completedWorkouts = stats.completedWorkouts,
+                totalWorkouts = stats.totalWorkouts,
+                progressPercentage = if (stats.totalWorkouts > 0) (stats.completedWorkouts * 100) / stats.totalWorkouts else 0
+            ))
         } catch (e: Exception) {
             Result.failure(e)
         }
