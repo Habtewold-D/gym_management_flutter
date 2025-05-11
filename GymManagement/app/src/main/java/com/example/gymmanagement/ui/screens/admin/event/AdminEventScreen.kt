@@ -85,29 +85,33 @@ fun AdminEventScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Events",
-                        fontSize = 24.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                 }
             }
 
+            // Add Event clickable text
+            Text(
+                text = "Add Event",
+                color = Color.Blue,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 4.dp, start = 4.dp)
+                    .clickable { /* Optionally scroll to form or focus */ }
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "Add Event",
-                    style = MaterialTheme.typography.titleMedium.copy(color = Color.Blue),
-                    modifier = Modifier.padding(bottom = 2.dp)
-                )
-
                 EventForm(
                     onEventCreated = { eventRequest ->
                         if (isEventFormValid(eventRequest.title, eventRequest.date, eventRequest.time, eventRequest.location)) {
@@ -341,13 +345,13 @@ fun EventForm(
             enabled = title.isNotBlank() && date.isNotBlank() && time.isNotBlank() && location.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(44.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = DeepBlue
             ),
-            shape = RoundedCornerShape(4.dp)
+            shape = RoundedCornerShape(6.dp)
         ) {
-            Text("Create Event", color = Color.White)
+            Text("Create", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -574,25 +578,22 @@ fun EventCard(
     event: EventResponse,
     onEditClick: (EventResponse) -> Unit
 ) {
-    Log.d("EventCard", "Displaying imageUri: ${event.imageUri}")
-    val file = File(event.imageUri ?: "")
-    Log.d("EventCard", "File exists: ${file.exists()}")
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
+            .height(180.dp)
             .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background Image or fallback color
+            // Background image
             if (!event.imageUri.isNullOrEmpty()) {
-                val imageModel = File(event.imageUri)
                 AsyncImage(
-                    model = imageModel,
+                    model = event.imageUri,
                     contentDescription = null,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
                 )
             } else {
                 Box(
@@ -602,90 +603,121 @@ fun EventCard(
                 )
             }
 
-            // Top right: Edit icon in white circle
-            Surface(
+            // Title pill at top left
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp),
-                color = Color.White,
-                shape = RoundedCornerShape(50),
-                shadowElevation = 4.dp
+                    .align(Alignment.TopStart)
+                    .padding(12.dp)
             ) {
-                IconButton(onClick = { onEditClick(event) }, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
+                ) {
+                    Text(
+                        text = event.title,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            // Top left: Event title pill
-            Surface(
+            // Edit icon at top right
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(10.dp),
-                color = Color.White.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(50),
-                shadowElevation = 2.dp
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
             ) {
-                Text(
-                    text = event.title,
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                )
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(50),
+                    shadowElevation = 4.dp
+                ) {
+                    IconButton(onClick = { onEditClick(event) }, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
 
-            // Bottom left: Date, Time, Location as pills
+            // Add a gap between the title and the detail pills
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Event details (date, time, location) at bottom left
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.Start
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(50),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.padding(end = 6.dp)
-                    ) {
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.date,
                             color = Color.Black,
                             fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
                         )
                     }
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(50),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.padding(end = 6.dp)
-                    ) {
+                }
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.time,
                             color = Color.Black,
                             fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
                 Surface(
                     color = Color.White.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(50),
-                    shadowElevation = 2.dp
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
                 ) {
-                    Text(
-                        text = event.location,
-                        color = Color.Black,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = event.location,
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
+                        )
+                    }
                 }
             }
         }
