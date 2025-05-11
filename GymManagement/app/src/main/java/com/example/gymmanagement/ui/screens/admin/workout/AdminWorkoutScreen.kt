@@ -240,8 +240,8 @@ fun WorkoutForm(
         OutlinedTextField(
             value = userId,
             onValueChange = { userId = it },
-            label = { Text("User ID", fontSize = 12.sp) },
-            placeholder = { Text("Enter user ID", fontSize = 12.sp) },
+            label = { Text("Trainee ID", fontSize = 12.sp) },
+            placeholder = { Text("Enter trainee ID", fontSize = 12.sp) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(4.dp),
@@ -295,6 +295,7 @@ fun WorkoutForm(
         Spacer(modifier = Modifier.height(2.dp))
         Button(
             onClick = {
+                Log.d("WorkoutForm", "Submitting workout with userId: $userId")
                 val workout = WorkoutRequest(
                     eventTitle = eventTitle,
                     userId = userId.toIntOrNull() ?: 0,
@@ -378,6 +379,7 @@ fun EditWorkoutDialog(
                 }
 
                 var eventTitle by remember { mutableStateOf(workout?.eventTitle ?: "") }
+                var traineeId by remember { mutableStateOf(workout?.user?.id?.toString() ?: "") }
                 var sets by remember { mutableStateOf(workout?.sets?.toString() ?: "") }
                 var repsOrSecs by remember { mutableStateOf(workout?.repsOrSecs?.toString() ?: "") }
                 var restTime by remember { mutableStateOf(workout?.restTime?.toString() ?: "") }
@@ -431,6 +433,21 @@ fun EditWorkoutDialog(
                     value = eventTitle,
                     onValueChange = { eventTitle = it },
                     label = { Text("Workout title", fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = LightBlue,
+                        focusedBorderColor = DeepBlue
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = traineeId,
+                    onValueChange = { traineeId = it },
+                    label = { Text("Trainee ID", fontSize = 12.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(4.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -538,7 +555,8 @@ fun EditWorkoutDialog(
                                     eventTitle = eventTitle,
                                     sets = sets.toIntOrNull(),
                                     repsOrSecs = repsOrSecs.toIntOrNull(),
-                                    restTime = restTime.toIntOrNull()
+                                    restTime = restTime.toIntOrNull(),
+                                    userId = traineeId.toIntOrNull()
                                 )
                                 onConfirm(updatedWorkout)
                             }
@@ -565,6 +583,7 @@ fun WorkoutCard(
     workout: WorkoutResponse,
     onEditClick: (WorkoutResponse) -> Unit
 ) {
+    Log.d("WorkoutCard", "Displaying workout with userId: ${workout.user.id}")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -619,13 +638,16 @@ fun WorkoutCard(
                     .align(Alignment.TopStart)
                     .padding(8.dp),
                 color = Color.White.copy(alpha = 0.95f),
+                shape = RoundedCornerShape(10.dp),
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    text = workout.userId.toString(),
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    text = "${workout.user.id}",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             }
 

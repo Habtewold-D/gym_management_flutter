@@ -2,12 +2,12 @@ package com.example.gymmanagement.data.model
 
 data class WorkoutRequest(
     val eventTitle: String,
-    val userId: Int,
     val sets: Int,
     val repsOrSecs: Int,
     val restTime: Int,
     val imageUri: String?,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val userId: Int
 )
 
 data class WorkoutUpdateRequest(
@@ -15,20 +15,21 @@ data class WorkoutUpdateRequest(
     val eventTitle: String? = null,
     val sets: Int? = null,
     val repsOrSecs: Int? = null,
-    val restTime: Int? = null
+    val restTime: Int? = null,
+    val userId: Int? = null
 )
 
 data class WorkoutResponse(
     val id: Int,
     val eventTitle: String,
-    val userId: Int,
     val sets: Int,
     val repsOrSecs: Int,
     val restTime: Int,
     val imageUri: String?,
     val isCompleted: Boolean,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val user: UserResponse
 )
 
 data class WorkoutStatsResponse(

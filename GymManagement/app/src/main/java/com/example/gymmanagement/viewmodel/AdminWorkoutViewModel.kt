@@ -34,6 +34,7 @@ class AdminWorkoutViewModel(
                 Log.d(TAG, "Loading all workouts")
                 workoutRepository.getAllWorkouts().onSuccess { workoutList ->
                     Log.d(TAG, "Successfully loaded ${workoutList.size} workouts")
+                    workoutList.forEach { Log.d(TAG, "Workout id: ${it.id}, userId: ${it.user.id}") }
                     _workouts.value = workoutList
                 }.onFailure { e ->
                     Log.e(TAG, "Failed to load workouts: ${e.message}", e)
