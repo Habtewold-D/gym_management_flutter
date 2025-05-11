@@ -57,7 +57,7 @@ fun MemberEventScreen(
             ) {
                 Text(
                     text = "Gym Events",
-                    fontSize = 24.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -134,13 +134,12 @@ fun EventCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+            .height(180.dp)
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             // Background image
             if (!event.imageUri.isNullOrEmpty()) {
                 AsyncImage(
@@ -157,95 +156,97 @@ fun EventCard(
                 )
             }
 
-            // Overlays: title, date, time, location
-            Column(
+            // Title pill at top left
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Bottom
+                    .align(Alignment.TopStart)
+                    .padding(12.dp)
             ) {
-                // Title
                 Surface(
                     color = Color.White.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(50),
+                    shape = RoundedCornerShape(12.dp),
                     shadowElevation = 2.dp,
-                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Text(
                         text = event.title,
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }
-                // Date, Time, Location
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 4.dp)
+            }
+
+            // Add a gap between the title and the detail pills
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Event details (date, time, location) at bottom left
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
                 ) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(50),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.padding(end = 6.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = event.date,
-                                color = Color.Black,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                    Surface(
-                        color = Color.White.copy(alpha = 0.95f),
-                        shape = RoundedCornerShape(50),
-                        shadowElevation = 2.dp
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.AccessTime,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = event.time,
-                                color = Color.Black,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = event.date,
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
+                        )
                     }
                 }
                 Surface(
                     color = Color.White.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(50),
-                    shadowElevation = 2.dp
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = event.time,
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
+                        )
+                    }
+                }
+                Surface(
+                    color = Color.White.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
                             tint = Color.Black,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = event.location,
                             color = Color.Black,
-                            fontSize = 15.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(end = 8.dp, top = 4.dp, bottom = 4.dp)
                         )
                     }
                 }
