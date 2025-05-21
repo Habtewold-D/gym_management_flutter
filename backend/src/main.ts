@@ -9,10 +9,8 @@ async function bootstrap() {
   
   // Enable CORS for Android app
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://10.0.2.2:3000'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    origin: true, // Allow all origins for dev
+    credentials: true,
   });
   
   // Enable validation
