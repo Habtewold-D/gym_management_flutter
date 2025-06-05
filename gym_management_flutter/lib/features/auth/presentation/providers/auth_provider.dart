@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../domain/models/user.dart';
-import '../../domain/models/auth_response.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 String getBaseUrl() {
   if (kIsWeb) {
@@ -19,77 +18,85 @@ String getBaseUrl() {
   return 'http://172.17.98.5:3000';
 }
 
-class AuthProvider with ChangeNotifier {
-  static final String _baseUrl = getBaseUrl();
-  static const String _tokenKey = 'access_token';
-  static const String _userKey = 'user_data';
+class User {
+  final String email;
+  User({required this.email});
+  factory User.fromJson(Map<String, dynamic> json) => User(email: json['email']);
+  Map<String, dynamic> toJson() => {'email': email};
+}
+
+class AuthResponse {
+  final Map<String, dynamic> data;
+  AuthResponse({required this.data});
+  factory AuthResponse.fromJson(Map<String, dynamic> json) =>
+      AuthResponse(data: json);
+  // Added getters:
+  String get accessToken => data['accessToken'] as String? ?? '';
+  User get user => User.fromJson(data['user'] as Map<String, dynamic>);
+}
+
+class AuthState {
+  final bool isLoading;
+  final User? user;
+  final String? error;
+  const AuthState({this.isLoading = false, this.user, this.error});
+  AuthState copyWith({bool? isLoading, User? user, String? error}) {
+    return AuthState(
+      isLoading: isLoading ?? this.isLoading,
+      user: user ?? this.user,
+      error: error,
+    );
+  }
+}
+
+class AuthNotifier extends StateNotifier<AuthState> {
+  final String _baseUrl = 'http://localhost:3000';
   final _storage = const FlutterSecureStorage();
 
-  String? _accessToken;
-  String? _userRole;
-  User? _currentUser;
-  bool _isLoading = false;
-  String? _error;
-
-  String? get accessToken => _accessToken;
-  String? get userRole => _userRole;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  bool get isAuthenticated => _accessToken != null;
-  User? get currentUser => _currentUser;
-
-  AuthProvider() {
-    _loadStoredAuth();
-  }
-
+  AuthNotifier() : super(const AuthState());
+  
+  // Added getter:
+  User? get currentUser => state.user;
+  
   Future<void> _loadStoredAuth() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _accessToken = prefs.getString(_tokenKey);
-      final userJson = prefs.getString(_userKey);
-      if (userJson != null) {
-        _currentUser = User.fromJson(json.decode(userJson));
+      final token = prefs.getString('access_token');
+      final userJson = prefs.getString('user_data');
+      if (token != null) {
+        state = AuthState(
+          user: User.fromJson(json.decode(userJson!)),
+        );
       }
-      notifyListeners();
     } catch (e) {
-      _error = e.toString();
-      notifyListeners();
+      state = AuthState(error: e.toString());
     }
   }
 
   Future<void> _saveAuthData(String token, User user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
-      await prefs.setString(_userKey, json.encode(user.toJson()));
-      _accessToken = token;
-      _currentUser = user;
-      notifyListeners();
+      await prefs.setString('access_token', token);
+      await prefs.setString('user_data', json.encode(user.toJson()));
+      state = AuthState(user: user);
     } catch (e) {
-      _error = e.toString();
-      notifyListeners();
+      state = AuthState(error: e.toString());
     }
   }
 
   Future<void> _clearAuthData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userKey);
-      _accessToken = null;
-      _currentUser = null;
-      notifyListeners();
+      await prefs.remove('access_token');
+      await prefs.remove('user_data');
+      state = const AuthState();
     } catch (e) {
-      _error = e.toString();
-      notifyListeners();
+      state = AuthState(error: e.toString());
     }
   }
 
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    state = const AuthState(isLoading: true);
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
@@ -100,41 +107,27 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      debugPrint('Login response status: ${response.statusCode}');
-      debugPrint('Login response body: ${response.body}');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
-        debugPrint('Decoded response: $responseData');
         
         if (responseData['access_token'] == null || responseData['user'] == null) {
-          _error = 'Invalid response format from server';
-          debugPrint('Invalid response format: $responseData');
+          state = const AuthState(error: 'Invalid response format from server');
           return false;
         }
 
         final authResponse = AuthResponse.fromJson(responseData);
         await _saveAuthData(authResponse.accessToken, authResponse.user);
-        
-        // Set the role from the user object
-        _userRole = authResponse.user.role;
-        await _storage.write(key: 'role', value: _userRole);
-        
-        debugPrint('User role set to: $_userRole');
         return true;
       } else {
         final errorData = json.decode(response.body);
-        _error = errorData['message'] ?? 'Login failed';
-        debugPrint('Login failed: ${response.body}');
+        state = AuthState(error: errorData['message'] ?? 'Login failed');
         return false;
       }
     } catch (e) {
-      _error = 'Could not connect to backend: $e';
-      debugPrint('Login error: $e');
+      state = AuthState(error: 'Could not connect to backend: $e');
       return false;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -147,10 +140,7 @@ class AuthProvider with ChangeNotifier {
     required double height,
     required double weight,
   }) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    state = const AuthState(isLoading: true);
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/register'),
@@ -172,36 +162,37 @@ class AuthProvider with ChangeNotifier {
         return true;
       } else {
         final errorData = json.decode(response.body);
-        _error = errorData['message'] ?? 'Registration failed';
-        debugPrint('Registration failed: ${response.body}');
+        state = AuthState(error: errorData['message'] ?? 'Registration failed');
         return false;
       }
     } catch (e) {
-      _error = 'Could not connect to backend: $e';
-      debugPrint('Registration error: $e');
+      state = AuthState(error: 'Could not connect to backend: $e');
       return false;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      state = state.copyWith(isLoading: false);
     }
   }
 
   Future<void> logout() async {
     await _clearAuthData();
-    _userRole = null;
-    await _storage.delete(key: 'token');
-    await _storage.delete(key: 'role');
-    notifyListeners();
   }
 
   Future<User?> getCurrentUser() async {
     await _loadStoredAuth();
-    return _currentUser;
+    return state.user;
   }
 
   Future<void> checkAuthStatus() async {
-    _accessToken = await _storage.read(key: 'token');
-    _userRole = await _storage.read(key: 'role');
-    notifyListeners();
+    final token = await _storage.read(key: 'token');
+    final userJson = await _storage.read(key: 'user_data');
+    if (token != null && userJson != null) {
+      state = AuthState(user: User.fromJson(json.decode(userJson)));
+    } else {
+      state = const AuthState();
+    }
   }
-} 
+}
+
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier();
+});

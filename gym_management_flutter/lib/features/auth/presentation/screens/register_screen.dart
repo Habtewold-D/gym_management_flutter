@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import 'package:gym_management_flutter/navigation/app_routes.dart';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+class RegisterScreen extends ConsumerStatefulWidget {
+  final VoidCallback? onLoginTapped; // added callback parameter
+  const RegisterScreen({Key? key, this.onLoginTapped}) : super(key: key);
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   String _name = '';
   String _email = '';
@@ -19,11 +21,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _height = '';
   String _weight = '';
   bool _showPassword = false;
-  bool _showConfirmPassword = false;
+
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate()) {
+      final authNotifier = ref.read(authProvider.notifier);
+      final success = await authNotifier.register(
+        name: _name,
+        email: _email,
+        password: _password,
+        confirmPassword: _confirmPassword,
+        age: int.tryParse(_age) ?? 0,
+        height: double.tryParse(_height) ?? 0.0,
+        weight: double.tryParse(_weight) ?? 0.0,
+      );
+      if (success && mounted) {
+        widget.onLoginTapped?.call(); // use provided callback to switch to login screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful! Please login.')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authState = ref.watch(authProvider);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -44,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 48,
-                  backgroundImage: AssetImage('assets/images/gym_logo.png'),
+                  backgroundImage: const AssetImage('assets/images/gym_logo.png'),
                   backgroundColor: const Color(0xFF241A87),
                 ),
               ),
@@ -121,7 +143,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_showPassword ? Icons.visibility : Icons.visibility_off),
+                          icon: Icon(
+                            _showPassword ? Icons.visibility : Icons.visibility_off,
+                          ),
                           onPressed: () {
                             setState(() {
                               _showPassword = !_showPassword;
@@ -149,15 +173,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_showConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                          icon: Icon(
+                            _showPassword ? Icons.visibility : Icons.visibility_off,
+                          ),
                           onPressed: () {
                             setState(() {
-                              _showConfirmPassword = !_showConfirmPassword;
+                              _showPassword = !_showPassword;
                             });
                           },
                         ),
                       ),
-                      obscureText: !_showConfirmPassword,
+                      obscureText: !_showPassword,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please confirm your password';
@@ -226,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       decoration: const InputDecoration(
-                        labelText: 'Weight(kg)',
+                        labelText: 'Weight (kg)',
                         hintText: 'Enter your weight in kg',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.monitor_weight_outlined),
@@ -254,11 +280,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              if (authProvider.error != null)
+              if (authState.error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: Text(
-                    authProvider.error!,
+                    authState.error!,
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -272,45 +298,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: authProvider.isLoading
-                      ? null
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            final success = await authProvider.register(
-                              name: _name,
-                              email: _email,
-                              password: _password,
-                              confirmPassword: _confirmPassword,
-                              age: int.parse(_age),
-                              height: double.parse(_height),
-                              weight: double.parse(_weight),
-                            );
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Registration successful!')),
-                              );
-                              // Navigate based on user role
-                              final user = authProvider.currentUser;
-                              if (user != null && user.role.toLowerCase() == 'admin') {
-                                Navigator.pushReplacementNamed(context, '/admin');
-                              } else {
-                                Navigator.pushReplacementNamed(context, '/member');
-                              }
-                            }
-                          }
-                        },
-                  child: authProvider.isLoading
+                  onPressed: authState.isLoading ? null : _register,
+                  child: authState.isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Register', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
+              // "Already have an account?" row updated:
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Already have an account? "),
                   GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/login'),
+                    onTap: widget.onLoginTapped, // Calls callback to switch to Login screen
                     child: const Text(
                       'Login',
                       style: TextStyle(
@@ -328,4 +329,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-} 
+}

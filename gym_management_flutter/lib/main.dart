@@ -1,91 +1,115 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/admin/presentation/providers/admin_provider.dart';
-import 'features/admin/data/services/admin_service.dart';
+import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
-import 'features/admin/presentation/screens/admin_dashboard.dart';
-import 'features/member/presentation/screens/member_dashboard.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: GymManagementApp()));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
+class GymManagementApp extends ConsumerWidget {
+  const GymManagementApp({Key? key}) : super(key: key);
+  
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (context) => AuthProvider(),
-        ),
-        ProxyProvider<AuthProvider, AdminProvider>(
-          update: (context, authProvider, previous) => AdminProvider(
-            AdminService('http://localhost:3000', authProvider),
-          ),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'Gym Management',
-        theme: ThemeData(
-          primaryColor: const Color(0xFF241A87),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF241A87),
-          ),
-          useMaterial3: true,
-        ),
-        home: const AuthWrapper(),
-        routes: {
-          '/login': (context) => const LoginScreen(),
-          '/register': (context) => const RegisterScreen(),
-          '/admin': (context) => const AdminDashboard(),
-          '/member': (context) => const MemberDashboard(),
-        },
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    return MaterialApp.router(
+      title: 'Gym Management',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      routerDelegate: MyRouterDelegate(authState),
+      routeInformationParser: MyRouteInformationParser(),
     );
   }
 }
 
-class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
-
-  @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
+class MyRoutePath {
+  final String location;
+  const MyRoutePath(this.location);
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class MyRouterDelegate extends RouterDelegate<MyRoutePath>
+    with ChangeNotifier, PopNavigatorRouterDelegateMixin<MyRoutePath> {
   @override
-  void initState() {
-    super.initState();
-    _checkAuthStatus();
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  final authState; // Auth state from Riverpod
+  String? _selectedPage; // 'login' or 'register'
+
+  MyRouterDelegate(this.authState);
+
+  // Callback to be passed to SplashScreen.
+  void _onLoginSelected() {
+    _selectedPage = '/login';
+    notifyListeners();
+  }
+  void _onRegisterSelected() {
+    _selectedPage = '/register';
+    notifyListeners();
   }
 
-  Future<void> _checkAuthStatus() async {
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.checkAuthStatus();
-
-    if (!mounted) return;
-
-    if (authProvider.accessToken != null) {
-      if (authProvider.userRole == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin');
-      } else {
-        Navigator.pushReplacementNamed(context, '/member');
-      }
-    } else {
-      Navigator.pushReplacementNamed(context, '/login');
+  @override
+  MyRoutePath? get currentConfiguration {
+    if (authState.isLoading || (_selectedPage == null && authState.user == null)) {
+      return const MyRoutePath('/splash');
     }
+    if (authState.user != null) return const MyRoutePath('/home');
+    return MyRoutePath(_selectedPage!);
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
+    List<Page> pages = [];
+    if (authState.isLoading || (_selectedPage == null && authState.user == null)) {
+      // SplashScreen now provides buttons through callbacks.
+      pages.add(MaterialPage(
+          key: const ValueKey('Splash'),
+          child: SplashScreen(
+            onLoginSelected: _onLoginSelected,
+            onRegisterSelected: _onRegisterSelected,
+          )));
+    } else if (authState.user != null) {
+      pages.add(MaterialPage(
+          key: const ValueKey('Home'),
+          child: Scaffold(
+            appBar: AppBar(title: const Text("Home")),
+            body: Center(child: Text("Welcome, ${authState.user!.email}")),
+          )));
+    } else if (_selectedPage == '/login') {
+      pages.add(const MaterialPage(key: ValueKey('Login'), child: LoginScreen()));
+    } else if (_selectedPage == '/register') {
+      pages.add(const MaterialPage(key: ValueKey('Register'), child: RegisterScreen()));
+    }
+    return Navigator(
+      key: navigatorKey,
+      pages: pages,
+      onPopPage: (route, result) {
+        if (!route.didPop(result)) return false;
+        // Reset selection when a page is popped.
+        _selectedPage = null;
+        notifyListeners();
+        return true;
+      },
     );
+  }
+  
+  @override
+  Future<void> setNewRoutePath(MyRoutePath configuration) async {
+    // No-op; navigation is controlled by auth state and splash callbacks.
+  }
+}
+
+class MyRouteInformationParser extends RouteInformationParser<MyRoutePath> {
+  @override
+  Future<MyRoutePath> parseRouteInformation(RouteInformation routeInformation) async {
+    final uri = Uri.parse(routeInformation.location ?? '');
+    if (uri.path.isEmpty) return const MyRoutePath('/splash');
+    return MyRoutePath(uri.path);
+  }
+  
+  @override
+  RouteInformation restoreRouteInformation(MyRoutePath configuration) {
+    return RouteInformation(location: configuration.location);
   }
 }

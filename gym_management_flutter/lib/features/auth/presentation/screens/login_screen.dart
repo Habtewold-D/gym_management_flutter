@@ -1,43 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import 'package:gym_management_flutter/navigation/app_routes.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
-
+class LoginScreen extends ConsumerStatefulWidget {
+  final VoidCallback? onRegisterTapped; // added callback parameter
+  const LoginScreen({Key? key, this.onRegisterTapped}) : super(key: key);
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   String _email = '';
   String _password = '';
   bool _showPassword = false;
-
+  
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      final authProvider = context.read<AuthProvider>();
-      final success = await authProvider.login(_email, _password);
-
+      final authNotifier = ref.read(authProvider.notifier);
+      final success = await authNotifier.login(_email, _password);
       if (success && mounted) {
-        debugPrint('Login successful, user role: ${authProvider.userRole}');
-        
-        // Navigate based on user role
-        if (authProvider.userRole?.toLowerCase() == 'admin') {
-          debugPrint('Navigating to admin dashboard');
-          Navigator.pushReplacementNamed(context, '/admin');
-        } else {
-          debugPrint('Navigating to member dashboard');
-          Navigator.pushReplacementNamed(context, '/member');
-        }
+        debugPrint('Login successful: ${authNotifier.state.user?.email}');
+        // The auth state change will trigger the UI update in main.dart.
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authState = ref.watch(authProvider);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -94,7 +86,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Email address is required';
                         }
-                        final emailRegex = RegExp(r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+                        final emailRegex = RegExp(
+                          r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+                        );
                         if (!emailRegex.hasMatch(value)) {
                           return 'Please enter a valid email address';
                         }
@@ -106,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        hintText: 'Create Password',
+                        hintText: 'Enter your Password',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
@@ -133,11 +127,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
-              if (authProvider.error != null)
+              if (authState.error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: Text(
-                    authProvider.error!,
+                    authState.error!,
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -151,19 +145,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: authProvider.isLoading ? null : _login,
-                  child: authProvider.isLoading
+                  onPressed: authState.isLoading ? null : _login,
+                  child: authState.isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
+              // "Don't have an account?" row updated:
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Don't have an account? "),
                   GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/register'),
+                    onTap: widget.onRegisterTapped, // Calls callback to switch to Register screen
                     child: const Text(
                       'Register',
                       style: TextStyle(
@@ -181,4 +176,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}

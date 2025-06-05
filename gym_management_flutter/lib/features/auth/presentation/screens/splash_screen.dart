@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatelessWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  final VoidCallback? onLoginSelected;
+  final VoidCallback? onRegisterSelected;
+  
+  // Modified constructor to accept callbacks
+  const SplashScreen({Key? key, this.onLoginSelected, this.onRegisterSelected}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +127,7 @@ class SplashScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () => Navigator.pushNamed(context, '/login'),
+                        onPressed: onLoginSelected,
                         child: const Text(
                           'Login',
                           style: TextStyle(fontSize: 18, color: Colors.white),
@@ -141,7 +145,7 @@ class SplashScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () => Navigator.pushNamed(context, '/register'),
+                        onPressed: onRegisterSelected,
                         child: const Text(
                           'Register',
                           style: TextStyle(fontSize: 18, color: Color(0xFF241A87)),
@@ -158,4 +162,4 @@ class SplashScreen extends StatelessWidget {
       ),
     );
   }
-} 
+}
