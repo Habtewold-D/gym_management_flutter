@@ -1,66 +1,44 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'package:cached_network_image/cached_network_image.dart'; // For image loading
-import 'package:gym_management_flutter/core/models/event_model.dart'; // fixed import
-import 'package:gym_management_flutter/utils/image_picker_util.dart';  // fixed import (hypothetical)
-import '../providers/admin_provider.dart';
-import 'package:gym_management_flutter/core/services/admin_service.dart'; // Import AdminService
+import 'package:gym_management_flutter/core/models/event_model.dart';
+import 'package:gym_management_flutter/features/admin/presentation/providers/admin_event_provider.dart';
+import 'package:gym_management_flutter/utils/image_picker_util.dart';
+import 'package:gym_management_flutter/features/admin/presentation/widgets/image_picker_preview_widget.dart'; // Assuming this exists and is adaptable
+import 'package:cached_network_image/cached_network_image.dart';
 
-// Define color constants as in the Compose file
+// Define color constants
 const DeepBlue = Color(0xFF0000CD);
 const LightBlue = Color(0xFFE6E9FD);
 const Green = Color(0xFF4CAF50);
 
 class AdminEventScreen extends ConsumerStatefulWidget {
-  final int userId; // changed type to int
+  final int userId; // ID of the admin creating the event
   const AdminEventScreen({Key? key, required this.userId}) : super(key: key);
-  
+
   @override
   _AdminEventScreenState createState() => _AdminEventScreenState();
 }
 
 class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
-  bool showEditDialog = false;
-  EventResponse? selectedEvent;
-  
-  // Controllers for event form
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _dateController = TextEditingController();
   final _timeController = TextEditingController();
   final _locationController = TextEditingController();
-  String? _newEventImagePath; // Renamed from imageUri for clarity
   
-  late Future<List<dynamic>> _eventsFuture;
-  
-  // Modify fetchEvents() to use AdminService for token
-  Future<List<dynamic>> fetchEvents() async {
-    final adminService = AdminService();
-    final headers = await adminService.getHeaders();
-    final response = await http.get(
-      Uri.parse('${adminService.baseUrl}/events'),
-      headers: headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load events: ${response.statusCode} ${response.body}');
-    }
-  }
-  
+  Map<String, dynamic>? _pickedImageData; // For storing image data from picker
+
+  EventResponse? _editingEvent; // To hold event being edited
+
   @override
   void initState() {
     super.initState();
-    // Load events on startup
-    _eventsFuture = fetchEvents();
-    Future.microtask(() {
-      ref.read(adminProvider.notifier).loadEvents();
-    });
+    Future.microtask(() => ref.read(adminEventNotifierProvider.notifier).loadEvents());
   }
-  
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -69,389 +47,334 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
     _locationController.dispose();
     super.dispose();
   }
-  
-  void _resetCreateEventForm() {
+
+  void _resetForm() {
+    _formKey.currentState?.reset();
     _titleController.clear();
     _dateController.clear();
     _timeController.clear();
     _locationController.clear();
     setState(() {
-      _newEventImagePath = null;
+      _pickedImageData = null;
+      _editingEvent = null;
     });
   }
 
-  Future<void> _refreshEvents() async {
-    setState(() {
-      _eventsFuture = fetchEvents();
-    });
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    final events = ref.watch(adminProvider.select((p) => p.events));
-    final isLoading = ref.watch(adminProvider.select((p) => p.isLoading));
-    final error = ref.watch(adminProvider.select((p) => p.error));
-    final successMessage = ref.watch(adminProvider.select((p) => p.successMessage));
-    final validationError = ref.watch(adminProvider.select((p) => p.validationError));
-    
-    if (successMessage != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage)));
-        ref.read(adminProvider.notifier).setSuccessMessage(null);
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        _dateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Events"),
-        backgroundColor: const Color(0xFF241A87),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshEvents,
-        child: FutureBuilder<List<dynamic>>(
-          future: _eventsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
-              return const Center(child: CircularProgressIndicator());
-            if (snapshot.hasError)
-              return Center(child: Text('Error: ${snapshot.error}'));
-            if (!snapshot.hasData || snapshot.data!.isEmpty)
-              return const Center(child: Text('No events found'));
-            
-            final events = snapshot.data!;
-            return ListView.builder(
-              itemCount: events.length,
-              itemBuilder: (context, index) {
-                final event = events[index];
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: ListTile(
-                    title: Text(event['title'] ?? 'No Title'),
-                    subtitle: Text(event['description'] ?? ''),
-                    trailing: Text('By: ${event['createdBy'] ?? '-'}'),
-                    onTap: () {
-                      // Show event details
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text(event['title'] ?? 'Event Details'),
-                          content: Text(jsonEncode(event)),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text("Close"),
-                            )
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF241A87),
-        child: const Icon(Icons.add),
-        onPressed: () {
-          _resetCreateEventForm(); // Reset form before showing dialog
-          showDialog(
-            context: context,
-            builder: (BuildContext dialogContext) { // Use dialogContext for clarity
-              // Use StatefulBuilder to allow dialog content to update (e.g., image preview)
-              return StatefulBuilder(
-                builder: (BuildContext context, StateSetter setDialogState) {
-                  return AlertDialog(
-                    title: const Text("Create New Event"),
-                    content: SingleChildScrollView(
-                      child: EventForm(
-                        titleController: _titleController,
-                        dateController: _dateController,
-                        timeController: _timeController,
-                        locationController: _locationController,
-                        currentImagePath: _newEventImagePath,
-                        userId: widget.userId, // Pass userId from the screen widget
-                        onImagePicked: (path) {
-                          setDialogState(() { // Use StateSetter from StatefulBuilder
-                            _newEventImagePath = path;
-                          });
-                        },
-                        onEventCreated: (eventRequest) async {
-                          if (isEventFormValid(eventRequest)) {
-                            try {
-                              // Assuming adminProvider.notifier has a createEvent method
-                              await ref.read(adminProvider.notifier).createEvent(eventRequest);
-                              Navigator.of(dialogContext).pop(); // Close dialog
-                              _refreshEvents(); // Refresh the event list
-                              // _resetCreateEventForm(); // Already called when dialog opens
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Event created successfully!'), backgroundColor: Colors.green),
-                                );
-                              }
-                            } catch (e) {
-                              // Navigator.of(dialogContext).pop(); // Optionally close dialog on error
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to create event: ${e.toString().replaceFirst("Exception: ", "")}'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          } else {
-                             if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Please fill all required fields.'), backgroundColor: Colors.orange),
-                                );
-                              }
-                          }
-                        },
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          // _resetCreateEventForm(); // Reset if dialog is cancelled
-                        },
-                        child: const Text("Cancel"),
-                      ),
-                      // The 'Create' button is now inside EventForm
-                    ],
-                  );
-                },
-              );
+  }
+
+  Future<void> _pickImage() async {
+    final imageData = await ImagePickerUtil.pickImageFromGallery();
+    if (imageData != null) {
+      setState(() {
+        _pickedImageData = imageData;
+      });
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _timeController.text = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      if (_editingEvent == null) {
+        // Create new event
+        final request = EventRequest(
+          title: _titleController.text,
+          date: _dateController.text,
+          time: _timeController.text,
+          location: _locationController.text,
+          imageUri: _pickedImageData?['path'] as String?, // Path from picker (blob or file path)
+          createdBy: widget.userId,
+        );
+        ref.read(adminEventNotifierProvider.notifier).createEvent(request).then((_) {
+          _resetForm();
+        }).catchError((e) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create event: $e'), backgroundColor: Colors.red));
+        });
+      } else {
+        // Update existing event
+        final request = EventUpdateRequest(
+          id: _editingEvent!.id,
+          title: _titleController.text,
+          date: _dateController.text,
+          time: _timeController.text,
+          location: _locationController.text,
+          imageUri: _pickedImageData?['path'] as String?, // Path from picker
+        );
+        ref.read(adminEventNotifierProvider.notifier).updateEvent(request).then((_) {
+          _resetForm();
+        }).catchError((e) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update event: $e'), backgroundColor: Colors.red));
+        });
+      }
+    }
+  }
+
+  void _editEvent(EventResponse event) {
+    setState(() {
+      _editingEvent = event;
+      _titleController.text = event.title;
+      _dateController.text = event.date;
+      _timeController.text = event.time;
+      _locationController.text = event.location;
+      if (event.imageUri != null && event.imageUri!.isNotEmpty) {
+        _pickedImageData = {'path': event.imageUri};
+      } else {
+        _pickedImageData = null;
+      }
+
+    });
+  }
+
+  void _deleteEvent(int eventId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete this event?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ref.read(adminEventNotifierProvider.notifier).deleteEvent(eventId).catchError((e) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete event: $e'), backgroundColor: Colors.red));
+              });
             },
-          ).then((_) {
-            // Called when the dialog is dismissed, good place to ensure reset if not submitted
-            _resetCreateEventForm();
-          });
-        },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
-}
 
-bool isEventFormValid(EventRequest request) {
-  return request.title.isNotEmpty &&
-         request.date.isNotEmpty &&
-         request.time.isNotEmpty &&
-         request.location.isNotEmpty;
-}
-
-@immutable
-class EventForm extends StatelessWidget {
-  final Function(EventRequest) onEventCreated;
-  final TextEditingController titleController;
-  final TextEditingController dateController;
-  final TextEditingController timeController;
-  final TextEditingController locationController;
-  final Function(String) onImagePicked;
-  final String? currentImagePath; // Added
-  final int userId;
-  
-  const EventForm({
-    Key? key,
-    required this.onEventCreated,
-    required this.titleController,
-    required this.dateController,
-    required this.timeController,
-    required this.locationController,
-    required this.onImagePicked,
-    this.currentImagePath, // Added
-    required this.userId,
-  }) : super(key: key);
-  
   @override
   Widget build(BuildContext context) {
-    // For image picking, we assume a utility similar to ImagePicker (implementation not shown)
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () async {
-            try {
-              // Launch image picker and get a saved path
-              final imageResult = await ImagePickerUtil.pickImageFromGallery();
-              if (imageResult != null) {
-                // Ensure kIsWeb is available, import 'package:flutter/foundation.dart'; if not.
-                // For web, imageResult['path'] is the blobUrl. For native, it's the file path.
-                final String? imagePathString = imageResult['path'] as String?;
-                if (imagePathString != null) {
-                  onImagePicked(imagePathString);
-                }
-              }
-            } catch (e) {
-              // context is captured from the build method of EventForm.
-              // If EventForm is unmounted before this executes, an error might occur,
-              // but 'mounted' is not available in StatelessWidget.
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to pick image: ${e.toString().replaceFirst("Exception: ", "")}')),
-              );
-            }
-          },
-          child: Container(
-            width: double.infinity,
-            height: 180,
-            decoration: BoxDecoration(
-              color: const Color(0xFF9DB7F5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: imageUriWidget(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        OutlinedTextField(
-          controller: titleController,
-          label: "Event title",
-          placeholder: "Enter title",
-        ),
-        const SizedBox(height: 8),
-        OutlinedTextField(
-          controller: dateController,
-          label: "Date",
-          placeholder: "Enter date",
-        ),
-        const SizedBox(height: 8),
-        OutlinedTextField(
-          controller: timeController,
-          label: "Time",
-          placeholder: "Enter time",
-        ),
-        const SizedBox(height: 8),
-        OutlinedTextField(
-          controller: locationController,
-          label: "Location",
-          placeholder: "Enter location",
-        ),
-        const SizedBox(height: 16),
-        Button(
-          onPressed: () {
-            final request = EventRequest(
-              title: titleController.text,
-              date: dateController.text,
-              time: timeController.text,
-              location: locationController.text,
-              imageUri: currentImagePath,
-              createdBy: userId,
+    final adminEventState = ref.watch(adminEventNotifierProvider);
+    final events = adminEventState.events;
+    final isLoading = adminEventState.isLoading;
+    final error = adminEventState.error;
+    final successMessage = adminEventState.successMessage;
+
+    if (successMessage != null && successMessage.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage), backgroundColor: Green));
+        ref.read(adminEventNotifierProvider.notifier).clearMessages(); // Clear message
+      });
+    }
+    if (error != null && error.isNotEmpty  && !error.toLowerCase().contains('Please login again')) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+         // Optionally clear error: ref.read(adminProvider.notifier).clearError(); 
+      });
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_editingEvent == null ? 'Manage Events' : 'Edit Event', style: TextStyle(color: DeepBlue)),
+        backgroundColor: LightBlue,
+        elevation: 0,
+        actions: [
+          if (_editingEvent != null)
+            IconButton(
+              icon: Icon(Icons.cancel, color: DeepBlue),
+              onPressed: _resetForm, // Cancel editing
+            )
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(adminEventNotifierProvider.notifier).loadEvents(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildEventForm(context),
+                        SizedBox(height: 24),
+                        Text('Existing Events', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: DeepBlue)),
+                        SizedBox(height: 10),
+                        if (isLoading && events.isEmpty) Center(child: CircularProgressIndicator()),
+                        if (error != null && !isLoading && events.isEmpty) 
+                          Center(child: Text('Error: $error', style: TextStyle(color: Colors.red))),
+                        if (!isLoading && events.isEmpty && error == null) 
+                          Center(child: Text('No events found. Create one above!')),
+                        if (events.isNotEmpty) ...[
+                          ...events.map((event) => EventCard(
+                            event: event,
+                            onEdit: () => _editEvent(event),
+                            onDelete: () => _deleteEvent(event.id),
+                          )).toList(),
+                        ],
+                        // Add some bottom padding when there are many events
+                        if (events.isNotEmpty) SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             );
-            onEventCreated(request);
           },
-          child: const Text("Create", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
-      ],
+      ),
     );
   }
-  
-  Widget _buildPlaceholder({bool error = false, String? message}) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
+
+  Widget _buildEventForm(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(error ? Icons.broken_image : Icons.image, size: 48, color: DeepBlue),
-            const SizedBox(height: 8),
-            Text(
-              message ?? (error ? "Error loading image" : "Tap to add an image"),
-              style: const TextStyle(fontSize: 16, color: DeepBlue),
-              textAlign: TextAlign.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(_editingEvent == null ? 'Create New Event' : 'Editing: ${_editingEvent!.title}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: DeepBlue)),
+            SizedBox(height: 16),
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+              validator: (value) => value == null || value.isEmpty ? 'Please enter a title' : null,
             ),
+            SizedBox(height: 12),
+            TextFormField(
+              controller: _dateController,
+              decoration: InputDecoration(labelText: 'Date (YYYY-MM-DD)', border: OutlineInputBorder()),
+              readOnly: true,
+              onTap: () => _selectDate(context),
+              validator: (value) => value == null || value.isEmpty ? 'Please select a date' : null,
+            ),
+            SizedBox(height: 12),
+            TextFormField(
+              controller: _timeController,
+              decoration: InputDecoration(labelText: 'Time (HH:MM)', border: OutlineInputBorder()),
+              readOnly: true,
+              onTap: () => _selectTime(context),
+              validator: (value) => value == null || value.isEmpty ? 'Please select a time' : null,
+            ),
+            SizedBox(height: 12),
+            TextFormField(
+              controller: _locationController,
+              decoration: InputDecoration(labelText: 'Location', border: OutlineInputBorder()),
+              validator: (value) => value == null || value.isEmpty ? 'Please enter a location' : null,
+            ),
+            SizedBox(height: 16),
+            // TODO: Review ImagePickerPreviewWidget parameters if they were changed from initialImagePath/Bytes
+            ImagePickerPreviewWidget(
+              imageData: _pickedImageData,
+              onPickImage: _pickImage,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _submitForm,
+              child: Text(_editingEvent == null ? 'Create Event' : 'Update Event'),
+              style: ElevatedButton.styleFrom(backgroundColor: DeepBlue, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 16)),
+            ),
+            if (_editingEvent != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: TextButton(
+                  onPressed: _resetForm,
+                  child: Text('Cancel Edit', style: TextStyle(color: DeepBlue)),
+                ),
+              )
           ],
         ),
       ),
     );
   }
+}
 
-  Widget imageUriWidget() {
-    if (currentImagePath != null && currentImagePath!.isNotEmpty) {
-      if (kIsWeb) {
-        // For web, currentImagePath is expected to be a network URL (e.g., blob URL)
-        return Image.network(
-          currentImagePath!,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: 180, // Match container height
-          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(error: true, message: 'Failed to load web image.'),
+class EventCard extends StatelessWidget {
+  final EventResponse event;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const EventCard({Key? key, required this.event, required this.onEdit, required this.onDelete}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget imageWidget;
+    if (event.imageUri != null && event.imageUri!.isNotEmpty) {
+      if (kIsWeb && event.imageUri!.startsWith('blob:')) {
+        imageWidget = Image.network(event.imageUri!, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (c, o, s) => Icon(Icons.broken_image, size: 40));
+      } else if (!kIsWeb && File(event.imageUri!).existsSync()) {
+        imageWidget = Image.file(File(event.imageUri!), width: 80, height: 80, fit: BoxFit.cover);
+      } else if (event.imageUri!.startsWith('http')) {
+         imageWidget = CachedNetworkImage(
+            imageUrl: event.imageUri!,
+            placeholder: (context, url) => Container(width: 80, height: 80, child: Center(child: CircularProgressIndicator())),
+            errorWidget: (context, url, error) => Container(width: 80, height: 80, child: Icon(Icons.broken_image, size: 40)),
+            width: 80, height: 80, fit: BoxFit.cover,
         );
       } else {
-        // For native, currentImagePath is expected to be a local file path
-        final file = File(currentImagePath!);
-        if (file.existsSync()) {
-            return Image.file(
-              file,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: 180, // Match container height
-              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(error: true, message: 'Failed to load local image file.'),
-            );
-        } else {
-            return _buildPlaceholder(error: true, message: 'Image file not found.');
-        }
+        imageWidget = Container(width: 80, height: 80, child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey)); // Placeholder for unknown path type
       }
+    } else {
+      imageWidget = Container(width: 80, height: 80, child: Icon(Icons.event, size: 40, color: DeepBlue));
     }
-    return _buildPlaceholder();
-  }
-}
 
-@immutable
-class OutlinedTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String placeholder;
-  
-  const OutlinedTextField({
-    Key? key,
-    required this.controller,
-    required this.label,
-    required this.placeholder,
-  }) : super(key: key);
-  
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: placeholder,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: DeepBlue),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: LightBlue),
-          borderRadius: BorderRadius.circular(4),
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            imageWidget,
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  Text(event.title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: DeepBlue)),
+                  SizedBox(height: 4),
+                  Text('Date: ${event.date} at ${event.time}', style: TextStyle(color: Colors.grey[700])),
+                  SizedBox(height: 4),
+                  Text('Location: ${event.location}', style: TextStyle(color: Colors.grey[700])),
+                ],
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+                IconButton(icon: Icon(Icons.edit, color: Colors.orange), onPressed: onEdit),
+                IconButton(icon: Icon(Icons.delete, color: Colors.red), onPressed: onDelete),
+              ],
+            )
+          ],
         ),
       ),
-      keyboardType: TextInputType.text,
     );
   }
 }
-
-@immutable
-class Button extends StatelessWidget {
-  final VoidCallback onPressed;
-  final Widget child;
-  final ButtonStyle? style;
-  
-  const Button({Key? key, required this.onPressed, required this.child, this.style}) : super(key: key);
-  
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: style,
-      child: child,
-    );
-  }
-}
-
-// Dummy placeholder widgets for compilation:
-Widget EventCard({required dynamic event}) =>
-    Card(child: ListTile(title: Text(event.toString())));
-Widget EditEventDialog({required dynamic event, required Function onConfirm}) =>
-    AlertDialog(title: const Text("Edit Event"), content: const Text("Edit event details here"));

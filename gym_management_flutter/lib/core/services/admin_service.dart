@@ -201,14 +201,14 @@ class AdminService {
       throw Exception('Failed to update event: $e');
     }
   }
-  
+
   Future<void> deleteEvent(int eventId) async {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/events/$eventId'),
         headers: await getHeaders(),
       );
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 204) { // 204 No Content is also a success for delete
         throw Exception('Failed to delete event: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
