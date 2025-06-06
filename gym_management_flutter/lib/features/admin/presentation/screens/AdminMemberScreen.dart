@@ -104,8 +104,19 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
                             subtitle: Text('ID: ${member.id}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                // Call API to delete member here
+                              onPressed: () async {
+                                try {
+                                  final adminService = AdminService();
+                                  await adminService.deleteMember(member.id);
+                                  // Refresh members list after deletion
+                                  setState(() {
+                                    _membersFuture = fetchMembers();
+                                  });
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error deleting member: $e'))
+                                  );
+                                }
                               },
                             ),
                           ),

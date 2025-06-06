@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -202,9 +203,15 @@ class EventForm extends StatelessWidget {
         GestureDetector(
           onTap: () async {
             // Launch image picker and get a saved path
-            final path = await ImagePickerUtil.pickImage(context);
-            if (path != null) {
-              onImagePicked(path);
+            final imageResult = await ImagePickerUtil.pickImage(context);
+            if (imageResult != null) {
+              // Ensure kIsWeb is available, import 'package:flutter/foundation.dart'; if not.
+              final String? imagePathString = kIsWeb 
+                  ? (imageResult['blobUrl'] as String?) 
+                  : (imageResult['path'] as String?);
+              if (imagePathString != null) {
+                onImagePicked(imagePathString);
+              }
             }
           },
           child: Container(

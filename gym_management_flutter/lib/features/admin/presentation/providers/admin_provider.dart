@@ -6,7 +6,6 @@ import 'package:gym_management_flutter/core/models/event_model.dart';
 import 'package:gym_management_flutter/core/models/member_model.dart';
 import 'package:gym_management_flutter/core/services/admin_service.dart';
 
-// Use the updated parameterless AdminService()
 final adminServiceProvider = Provider<AdminService>((ref) {
   return AdminService();
 });
@@ -226,12 +225,13 @@ class AdminProvider extends ChangeNotifier {
     }
   }
   
-  Future<void> deleteMember(Member member) async {
+  Future<void> deleteMember(int memberId) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
-      _members.remove(member);
+      await _adminService.deleteMember(memberId);
+      _members.removeWhere((m) => m.id == memberId);
       setSuccessMessage('Member deleted successfully');
     } catch (e) {
       _error = e.toString();

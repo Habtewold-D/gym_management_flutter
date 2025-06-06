@@ -50,6 +50,7 @@ class WorkoutUpdateRequest {
   final int? sets;
   final int? repsOrSecs;
   final int? restTime;
+  final String? imageUri; // Added field
   final int? userId;
 
   WorkoutUpdateRequest({
@@ -58,6 +59,7 @@ class WorkoutUpdateRequest {
     this.sets,
     this.repsOrSecs,
     this.restTime,
+    this.imageUri, // Added to constructor
     this.userId,
   });
 
@@ -68,19 +70,22 @@ class WorkoutUpdateRequest {
       sets: json['sets'] as int?,
       repsOrSecs: json['repsOrSecs'] as int?,
       restTime: json['restTime'] as int?,
+      imageUri: json['imageUri'] as String?, // Added fromJson
       userId: json['userId'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> data = {
       'id': id,
-      'eventTitle': eventTitle,
-      'sets': sets,
-      'repsOrSecs': repsOrSecs,
-      'restTime': restTime,
-      'userId': userId,
     };
+    if (eventTitle != null) data['eventTitle'] = eventTitle;
+    if (sets != null) data['sets'] = sets;
+    if (repsOrSecs != null) data['repsOrSecs'] = repsOrSecs;
+    if (restTime != null) data['restTime'] = restTime;
+    if (imageUri != null) data['imageUri'] = imageUri; // Added toJson
+    if (userId != null) data['userId'] = userId;
+    return data;
   }
 }
 
