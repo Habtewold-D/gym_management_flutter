@@ -28,8 +28,11 @@ export class RolesGuard implements CanActivate {
       return false; // Explicitly deny if user or user.role is missing
     }
 
-    const hasRequiredRole = requiredRoles.some((role) => user.role === role);
-    this.logger.debug(`Does user have required role? ${hasRequiredRole}`); // Log result of role check
+    // Make role comparison case-insensitive
+    const hasRequiredRole = requiredRoles.some((role) => 
+      user.role?.toLowerCase() === role.toLowerCase()
+    );
+    this.logger.debug(`User role: ${user.role}, Required roles: ${JSON.stringify(requiredRoles)}, Match found: ${hasRequiredRole}`);
     return hasRequiredRole;
   }
 }

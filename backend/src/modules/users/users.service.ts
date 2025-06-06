@@ -22,19 +22,27 @@ export class UsersService {
     return this.usersRepository.find();
   }
 
+  async findMembers() {
+    return this.usersRepository.find({
+      where: { role: Role.MEMBER }
+    });
+  }
+
+  async findOne(id: number) {
+    const user = await this.usersRepository.findOne({
+      where: { id: id }
+    });
+    if (!user) {
+      throw new NotFoundException(`User #${id} not found`);
+    }
+    return user;
+  }
+
   async findAllMembers() {
     return this.usersRepository.find({
       where: { role: Role.MEMBER },
       select: ['id', 'name', 'email', 'role']
     });
-  }
-
-  async findOne(id: number) {
-    const user = await this.usersRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return user;
   }
 
   async findByEmail(email: string) {

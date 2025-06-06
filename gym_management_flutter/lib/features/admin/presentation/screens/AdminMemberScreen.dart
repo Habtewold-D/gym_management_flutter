@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:collection/collection.dart';
 import 'package:gym_management_flutter/core/models/member_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // new import
+import 'package:gym_management_flutter/core/services/admin_service.dart';  // added import for getBaseUrl
 
 class AdminMemberScreen extends StatefulWidget {
   const AdminMemberScreen({Key? key}) : super(key: key);
@@ -13,27 +14,14 @@ class AdminMemberScreen extends StatefulWidget {
 }
 
 class _AdminMemberScreenState extends State<AdminMemberScreen> {
-  late Future<List<dynamic>> _membersFuture;
+  late Future<List<Member>> _membersFuture;
   String searchId = "";
   Member? searchedMember;
   
-  Future<List<dynamic>> fetchMembers() async {
-    final token = await getAuthToken(); // retrieve saved token
-    print("Fetching members with token: $token"); // added logging
-    final response = await http.get(
-      Uri.parse('http://localhost:3000/admin/users/members'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-    print("Response for members: ${response.statusCode}\nBody: ${response.body}"); // added logging
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else if (response.statusCode == 401) {
-      throw Exception('Unauthorized. Token may be expired or invalid.');
-    } else {
-      throw Exception('Failed to load members');
-    }
+  Future<List<Member>> fetchMembers() async {
+    final adminService = AdminService();
+    // Use the AdminService method which uses the correct endpoint from the Kotlin app
+    return await adminService.getMembers();
   }
 
   // Helper function to retrieve the auth token.
@@ -68,47 +56,39 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refreshMembers,
-        child: FutureBuilder<List<dynamic>>(
+        child: FutureBuilder<List<Member>>(
           future: _membersFuture,
           builder: (context, snapshot) {
-            if(snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting)
               return const Center(child: CircularProgressIndicator());
-            if(snapshot.hasError)
+            if (snapshot.hasError)
               return Center(child: Text('Error: ${snapshot.error}'));
-            if(!snapshot.hasData || snapshot.data!.isEmpty)
+            if (!snapshot.hasData || snapshot.data!.isEmpty)
               return const Center(child: Text('No members found'));
               
-            List<Member> members = [];
-            snapshot.data!.forEach((e) {
-              members.add(Member(
-                id: e['id'],
-                name: e['name'],
-                email: e['email'] ?? '',
-                role: e['role'] ?? '',
-                joinDate: e['joinDate'] ?? '',  // added joinDate parameter
-              ));
-            });
-            
-            final filteredMembers = members.where((member) => member.role.toLowerCase() != "admin").toList();
+            List<Member> members = snapshot.data!;
+            final filteredMembers = members.where((member) =>
+                member.role.toLowerCase() != "admin").toList();
             
             return Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextField(
-                    key: const Key("search_by_id_field"), // added unique key so that the input gets an id/name attribute
+                    key: const Key("search_by_id_field"),
                     decoration: const InputDecoration(
                       labelText: "Search by ID"
                     ),
                     onChanged: (value) {
                       setState(() {
                         searchId = value;
-                        searchedMember = members.firstWhereOrNull((member) => member.id.toString() == searchId.trim());
+                        searchedMember = members.firstWhereOrNull((member) =>
+                          member.id.toString() == searchId.trim());
                       });
                     },
                   ),
                 ),
-                if(searchedMember != null)
+                if (searchedMember != null)
                   Expanded(child: MemberDetailSection(member: searchedMember!))
                 else
                   Expanded(

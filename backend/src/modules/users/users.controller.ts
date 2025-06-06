@@ -17,6 +17,12 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('members')
+  @Roles(Role.ADMIN)
+  getMembers() {
+    return this.usersService.findMembers();
+  }
+
   @Get(':id')
   @Roles(Role.MEMBER)
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {

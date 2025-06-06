@@ -73,7 +73,7 @@ class AdminService {
   Future<List<Member>> getMembers() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/admin/users/members'),
+        Uri.parse('$baseUrl/users/members'),
         headers: await getHeaders(),
       );
       if (response.statusCode == 200) {
