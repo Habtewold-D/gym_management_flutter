@@ -4,9 +4,17 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
+import 'features/admin/presentation/screens/AdminPage.dart'; // import admin page
+import 'features/admin/presentation/providers/admin_provider.dart';
 
-void main() {
-  runApp(const ProviderScope(child: GymManagementApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Remove obtaining SharedPreferences override; it's no longer needed
+  runApp(
+    const ProviderScope(
+      child: GymManagementApp(),
+    ),
+  );
 }
 
 class GymManagementApp extends ConsumerWidget {
@@ -54,15 +62,20 @@ class MyRouterDelegate extends RouterDelegate<MyRoutePath>
     if (authState.isLoading || (_selectedPage == null && authState.user == null)) {
       return const MyRoutePath('/splash');
     }
-    if (authState.user != null) return const MyRoutePath('/home');
+    if (authState.user != null) {
+      // Navigate to admin page if role is 'admin'
+      if (authState.user!.role.toLowerCase() == 'admin') {
+        return const MyRoutePath('/admin');
+      }
+      return const MyRoutePath('/home');
+    }
     return MyRoutePath(_selectedPage!);
   }
-
+  
   @override
   Widget build(BuildContext context) {
     List<Page> pages = [];
     if (authState.isLoading || (_selectedPage == null && authState.user == null)) {
-      // SplashScreen now provides buttons through callbacks.
       pages.add(MaterialPage(
           key: const ValueKey('Splash'),
           child: SplashScreen(
@@ -70,12 +83,20 @@ class MyRouterDelegate extends RouterDelegate<MyRoutePath>
             onRegisterSelected: _onRegisterSelected,
           )));
     } else if (authState.user != null) {
-      pages.add(MaterialPage(
-          key: const ValueKey('Home'),
-          child: Scaffold(
-            appBar: AppBar(title: const Text("Home")),
-            body: Center(child: Text("Welcome, ${authState.user!.email}")),
-          )));
+      // If admin then navigate to AdminPage to allow bottom navigation between admin sections.
+      if (authState.user!.role.toLowerCase() == 'admin') {
+        pages.add(MaterialPage(
+            key: const ValueKey('Admin'),
+            child: const AdminPage() // AdminPage with bottom bar navigation between admin screens.
+        ));
+      } else {
+        pages.add(MaterialPage(
+            key: const ValueKey('Home'),
+            child: Scaffold(
+              appBar: AppBar(title: const Text("Home")),
+              body: Center(child: Text("Welcome, ${authState.user!.email}")),
+            )));
+      }
     } else if (_selectedPage == '/login') {
       pages.add(const MaterialPage(key: ValueKey('Login'), child: LoginScreen()));
     } else if (_selectedPage == '/register') {
@@ -86,7 +107,6 @@ class MyRouterDelegate extends RouterDelegate<MyRoutePath>
       pages: pages,
       onPopPage: (route, result) {
         if (!route.didPop(result)) return false;
-        // Reset selection when a page is popped.
         _selectedPage = null;
         notifyListeners();
         return true;

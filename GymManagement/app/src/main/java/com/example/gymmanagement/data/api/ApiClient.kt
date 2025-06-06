@@ -17,7 +17,6 @@ import okhttp3.Interceptor
 
 object ApiClient {
     private const val TAG = "ApiClient"
-    private var accessToken: String? = null
 
     // For Android Emulator
     private const val EMULATOR_BASE_URL = "http://10.0.2.2:3000/"  // Make sure this matches your backend URL
@@ -32,18 +31,19 @@ object ApiClient {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    private val authInterceptor = { chain: Interceptor.Chain ->
+    private var accessToken: String? = null
+
+    private val authInterceptor = Interceptor { chain ->
         val request = chain.request()
-        val newRequest = if (accessToken != null) {
+        if (!accessToken.isNullOrEmpty()) {
             Log.d(TAG, "Adding Authorization header with token: $accessToken")
-            request.newBuilder()
+            chain.proceed(request.newBuilder()
                 .header("Authorization", "Bearer $accessToken")
-                .build()
+                .build())
         } else {
-            Log.e(TAG, "No access token available for request: ${request.url}")
-            request
+            Log.e(TAG, "No access token set for request: ${request.url}")
+            chain.proceed(request)
         }
-        chain.proceed(newRequest)
     }
 
     private val okHttpClient = OkHttpClient.Builder()
