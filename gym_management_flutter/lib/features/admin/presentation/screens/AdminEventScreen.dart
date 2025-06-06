@@ -32,7 +32,7 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
   final _dateController = TextEditingController();
   final _timeController = TextEditingController();
   final _locationController = TextEditingController();
-  String? imageUri;
+  String? _newEventImagePath; // Renamed from imageUri for clarity
   
   late Future<List<dynamic>> _eventsFuture;
   
@@ -70,6 +70,16 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
     super.dispose();
   }
   
+  void _resetCreateEventForm() {
+    _titleController.clear();
+    _dateController.clear();
+    _timeController.clear();
+    _locationController.clear();
+    setState(() {
+      _newEventImagePath = null;
+    });
+  }
+
   Future<void> _refreshEvents() async {
     setState(() {
       _eventsFuture = fetchEvents();
@@ -146,20 +156,77 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
         backgroundColor: const Color(0xFF241A87),
         child: const Icon(Icons.add),
         onPressed: () {
-          // Show UI for event creation
+          _resetCreateEventForm(); // Reset form before showing dialog
           showDialog(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("Create Event"),
-              content: const Text("Event creation UI goes here."),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                )
-              ],
-            ),
-          );
+            builder: (BuildContext dialogContext) { // Use dialogContext for clarity
+              // Use StatefulBuilder to allow dialog content to update (e.g., image preview)
+              return StatefulBuilder(
+                builder: (BuildContext context, StateSetter setDialogState) {
+                  return AlertDialog(
+                    title: const Text("Create New Event"),
+                    content: SingleChildScrollView(
+                      child: EventForm(
+                        titleController: _titleController,
+                        dateController: _dateController,
+                        timeController: _timeController,
+                        locationController: _locationController,
+                        currentImagePath: _newEventImagePath,
+                        userId: widget.userId, // Pass userId from the screen widget
+                        onImagePicked: (path) {
+                          setDialogState(() { // Use StateSetter from StatefulBuilder
+                            _newEventImagePath = path;
+                          });
+                        },
+                        onEventCreated: (eventRequest) async {
+                          if (isEventFormValid(eventRequest)) {
+                            try {
+                              // Assuming adminProvider.notifier has a createEvent method
+                              await ref.read(adminProvider.notifier).createEvent(eventRequest);
+                              Navigator.of(dialogContext).pop(); // Close dialog
+                              _refreshEvents(); // Refresh the event list
+                              // _resetCreateEventForm(); // Already called when dialog opens
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Event created successfully!'), backgroundColor: Colors.green),
+                                );
+                              }
+                            } catch (e) {
+                              // Navigator.of(dialogContext).pop(); // Optionally close dialog on error
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to create event: ${e.toString().replaceFirst("Exception: ", "")}'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          } else {
+                             if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Please fill all required fields.'), backgroundColor: Colors.orange),
+                                );
+                              }
+                          }
+                        },
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          // _resetCreateEventForm(); // Reset if dialog is cancelled
+                        },
+                        child: const Text("Cancel"),
+                      ),
+                      // The 'Create' button is now inside EventForm
+                    ],
+                  );
+                },
+              );
+            },
+          ).then((_) {
+            // Called when the dialog is dismissed, good place to ensure reset if not submitted
+            _resetCreateEventForm();
+          });
         },
       ),
     );
@@ -181,6 +248,7 @@ class EventForm extends StatelessWidget {
   final TextEditingController timeController;
   final TextEditingController locationController;
   final Function(String) onImagePicked;
+  final String? currentImagePath; // Added
   final int userId;
   
   const EventForm({
@@ -191,6 +259,7 @@ class EventForm extends StatelessWidget {
     required this.timeController,
     required this.locationController,
     required this.onImagePicked,
+    this.currentImagePath, // Added
     required this.userId,
   }) : super(key: key);
   
@@ -202,16 +271,24 @@ class EventForm extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: () async {
-            // Launch image picker and get a saved path
-            final imageResult = await ImagePickerUtil.pickImage(context);
-            if (imageResult != null) {
-              // Ensure kIsWeb is available, import 'package:flutter/foundation.dart'; if not.
-              final String? imagePathString = kIsWeb 
-                  ? (imageResult['blobUrl'] as String?) 
-                  : (imageResult['path'] as String?);
-              if (imagePathString != null) {
-                onImagePicked(imagePathString);
+            try {
+              // Launch image picker and get a saved path
+              final imageResult = await ImagePickerUtil.pickImageFromGallery();
+              if (imageResult != null) {
+                // Ensure kIsWeb is available, import 'package:flutter/foundation.dart'; if not.
+                // For web, imageResult['path'] is the blobUrl. For native, it's the file path.
+                final String? imagePathString = imageResult['path'] as String?;
+                if (imagePathString != null) {
+                  onImagePicked(imagePathString);
+                }
               }
+            } catch (e) {
+              // context is captured from the build method of EventForm.
+              // If EventForm is unmounted before this executes, an error might occur,
+              // but 'mounted' is not available in StatelessWidget.
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to pick image: ${e.toString().replaceFirst("Exception: ", "")}')),
+              );
             }
           },
           child: Container(
@@ -256,7 +333,7 @@ class EventForm extends StatelessWidget {
               date: dateController.text,
               time: timeController.text,
               location: locationController.text,
-              imageUri: null, // You can pass on the image URI here if available.
+              imageUri: currentImagePath,
               createdBy: userId,
             );
             onEventCreated(request);
@@ -267,19 +344,54 @@ class EventForm extends StatelessWidget {
     );
   }
   
-  Widget imageUriWidget() {
-    // A placeholder widget for image preview
-    // You could check if an image URI exists and then build an image widget.
+  Widget _buildPlaceholder({bool error = false, String? message}) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.image, size: 48, color: DeepBlue),
-          SizedBox(height: 8),
-          Text("Tap to add an image", style: TextStyle(fontSize: 18)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(error ? Icons.broken_image : Icons.image, size: 48, color: DeepBlue),
+            const SizedBox(height: 8),
+            Text(
+              message ?? (error ? "Error loading image" : "Tap to add an image"),
+              style: const TextStyle(fontSize: 16, color: DeepBlue),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget imageUriWidget() {
+    if (currentImagePath != null && currentImagePath!.isNotEmpty) {
+      if (kIsWeb) {
+        // For web, currentImagePath is expected to be a network URL (e.g., blob URL)
+        return Image.network(
+          currentImagePath!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 180, // Match container height
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(error: true, message: 'Failed to load web image.'),
+        );
+      } else {
+        // For native, currentImagePath is expected to be a local file path
+        final file = File(currentImagePath!);
+        if (file.existsSync()) {
+            return Image.file(
+              file,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: 180, // Match container height
+              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(error: true, message: 'Failed to load local image file.'),
+            );
+        } else {
+            return _buildPlaceholder(error: true, message: 'Image file not found.');
+        }
+      }
+    }
+    return _buildPlaceholder();
   }
 }
 

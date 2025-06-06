@@ -6,38 +6,19 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ImagePickerUtil {
   static final ImagePicker _picker = ImagePicker();
 
-  static Future<Map<String, dynamic>?> pickImage(BuildContext context) async {
+  static Future<Map<String, dynamic>?> pickImageFromGallery() async {
     try {
-      // Show dialog to choose between gallery and camera (optional)
-      final source = await showDialog<ImageSource>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Select Image Source'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, ImageSource.gallery),
-              child: const Text('Gallery'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, ImageSource.camera),
-              child: const Text('Camera'),
-            ),
-          ],
-        ),
-      );
-
-      if (source == null) return null;
+      const ImageSource source = ImageSource.gallery;
 
       final XFile? image = await _picker.pickImage(source: source);
-      if (image == null) return null;
+      if (image == null) return null; // User cancelled picker
 
       if (kIsWeb) {
-        // On web, return bytes and a blob URL
+        // On web, return bytes and the blob URL as 'path'
         final bytes = await image.readAsBytes();
-        final blobUrl = image.path; // May be a blob URL
         return {
+          'path': image.path, // image.path is the blob URL on web
           'bytes': bytes,
-          'blobUrl': blobUrl.isNotEmpty ? blobUrl : null,
           'name': image.name,
         };
       } else {
@@ -49,10 +30,8 @@ class ImagePickerUtil {
       }
     } catch (e) {
       print('Error picking image: $e'); // Debug log
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
-      return null;
+      // Throw an exception to be caught by the calling widget
+      throw Exception('Failed to pick image: $e');
     }
   }
 }

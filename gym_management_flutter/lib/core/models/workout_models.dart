@@ -78,12 +78,14 @@ class WorkoutUpdateRequest {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {
       'id': id,
+      // Always include imageUri so it can be explicitly set to null by the backend.
+      // Other fields are conditionally added to avoid overwriting them with null if not provided.
+      'imageUri': imageUri, 
     };
     if (eventTitle != null) data['eventTitle'] = eventTitle;
     if (sets != null) data['sets'] = sets;
     if (repsOrSecs != null) data['repsOrSecs'] = repsOrSecs;
     if (restTime != null) data['restTime'] = restTime;
-    if (imageUri != null) data['imageUri'] = imageUri; // Added toJson
     if (userId != null) data['userId'] = userId;
     return data;
   }

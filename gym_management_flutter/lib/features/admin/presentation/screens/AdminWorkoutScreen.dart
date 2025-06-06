@@ -1,18 +1,25 @@
+// lib/features/admin/presentation/screens/AdminWorkoutScreen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
 import 'package:gym_management_flutter/utils/image_picker_util.dart';
-import '../providers/admin_provider.dart';
-import 'dart:typed_data';
+import 'package:gym_management_flutter/features/admin/presentation/providers/admin_workout_provider.dart';
+import 'package:gym_management_flutter/features/admin/presentation/widgets/image_picker_preview_widget.dart';
+import 'package:gym_management_flutter/features/admin/presentation/screens/edit_workout_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Color constants reused
+const DeepBlue = Color(0xFF0000CD);
+const LightBlue = Color(0xFFE6E9FD);
 
 // WorkoutCard Widget
 class WorkoutCard extends StatelessWidget {
   final WorkoutResponse workout;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const WorkoutCard({Key? key, required this.workout, required this.onEdit}) : super(key: key);
+  const WorkoutCard({Key? key, required this.workout, required this.onEdit, required this.onDelete}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +58,7 @@ class WorkoutCard extends StatelessWidget {
             child: Center(child: Icon(Icons.image_not_supported, color: Colors.grey[600], size: 50)),
           );
         }
-      } else {
+      } else { // Web, but not http/blob (e.g. invalid local path for web)
         imageWidget = Container(
           height: 150,
           color: Colors.grey[300],
@@ -117,9 +124,18 @@ class WorkoutCard extends StatelessWidget {
                   ),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit, color: DeepBlue),
-                    onPressed: onEdit,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: DeepBlue),
+                        onPressed: onEdit,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: onDelete,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -131,288 +147,275 @@ class WorkoutCard extends StatelessWidget {
   }
 }
 
-// Color constants reused from AdminEventScreen
-const DeepBlue = Color(0xFF0000CD);
-const LightBlue = Color(0xFFE6E9FD);
-
 class AdminWorkoutScreen extends ConsumerStatefulWidget {
-  final int userId;
+  final int userId; 
   const AdminWorkoutScreen({Key? key, required this.userId}) : super(key: key);
-  
+
   @override
   _AdminWorkoutScreenState createState() => _AdminWorkoutScreenState();
 }
 
 class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _traineeIdController = TextEditingController();
+  late TextEditingController _traineeIdController; 
   final _setsController = TextEditingController();
   final _repsController = TextEditingController();
   final _restController = TextEditingController();
-  Map<String, dynamic>? _pickedImage; // Changed to store map
-  
+  Map<String, dynamic>? _pickedImage;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(adminProvider.notifier).loadWorkouts());
+    _traineeIdController = TextEditingController(text: widget.userId.toString());
+    // Load workouts for all users initially, then filter in build, 
+    // or modify provider to load by user ID if that's a common use case.
+    // For now, loading all and filtering in UI.
+    Future.microtask(() => ref.read(adminWorkoutNotifierProvider.notifier).loadWorkouts());
   }
-  
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _traineeIdController.dispose();
+    _setsController.dispose();
+    _repsController.dispose();
+    _restController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickImage() async {
-    final imageData = await ImagePickerUtil.pickImage(context);
-    if (imageData != null) {
-      setState(() {
-        _pickedImage = imageData;
-      });
+    try {
+      final imageData = await ImagePickerUtil.pickImageFromGallery();
+      if (imageData != null) {
+        setState(() {
+          _pickedImage = imageData;
+        });
+      }
+    } catch (e) {
+      if (mounted) { // Check if the widget is still in the tree
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: ${e.toString().replaceFirst("Exception: ", "")}')),
+        );
+      }
     }
   }
-  
-  void _createWorkout() {
-    final title = _titleController.text;
-    final traineeId = int.tryParse(_traineeIdController.text) ?? 0;
-    final sets = int.tryParse(_setsController.text) ?? 0;
-    final reps = int.tryParse(_repsController.text) ?? 0;
-    final rest = int.tryParse(_restController.text) ?? 0;
-    if (title.isNotEmpty && traineeId > 0) {
+
+  void _removeCreateFormImage() {
+    setState(() {
+      _pickedImage = null;
+    });
+  }
+
+  void _createWorkout() async {
+    if (_formKey.currentState!.validate()) {
+      final title = _titleController.text;
+      final traineeId = int.tryParse(_traineeIdController.text); // Should always be widget.userId
+      final sets = int.tryParse(_setsController.text);
+      final reps = int.tryParse(_repsController.text);
+      final rest = int.tryParse(_restController.text);
+
+      if (traineeId == null || sets == null || reps == null || rest == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please ensure all numeric fields are valid numbers.'), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
+
       final workoutRequest = WorkoutRequest(
         eventTitle: title,
         sets: sets,
         repsOrSecs: reps,
         restTime: rest,
-        imageUri: kIsWeb ? (_pickedImage?['blobUrl'] as String?) : (_pickedImage?['path'] as String?),
+        imageUri: _pickedImage?['path'] as String?,
         isCompleted: false,
-        userId: traineeId,
+        userId: traineeId, // Use the parsed (and fixed) traineeId
       );
-      ref.read(adminProvider.notifier).createWorkout(workoutRequest);
-      _titleController.clear();
-      _traineeIdController.clear();
-      _setsController.clear();
-      _repsController.clear();
-      _restController.clear();
-      setState(() { _pickedImage = null; });
+      try {
+        await ref.read(adminWorkoutNotifierProvider.notifier).createWorkout(workoutRequest);
+        _titleController.clear();
+        // _traineeIdController should not be cleared as it's fixed for this screen
+        _setsController.clear();
+        _repsController.clear();
+        _restController.clear();
+        setState(() { _pickedImage = null; });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Workout created successfully!'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to create workout: ${e.toString().replaceFirst("Exception: ", "")}') , backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
-  
+
   Future<void> _refreshWorkouts() async {
-    await ref.read(adminProvider.notifier).loadWorkouts();
+    // This will refresh all workouts; filtering happens in the build method.
+    await ref.read(adminWorkoutNotifierProvider.notifier).loadWorkouts();
   }
-  
-  Future<dynamic> _showEditDialog(WorkoutResponse workout) {
-    final editTitleController = TextEditingController(text: workout.eventTitle);
-    final editTraineeController = TextEditingController(text: workout.userId.toString());
-    final editSetsController = TextEditingController(text: workout.sets.toString());
-    final editRepsController = TextEditingController(text: workout.repsOrSecs.toString());
-    final editRestController = TextEditingController(text: workout.restTime.toString());
-    Map<String, dynamic>? editImageData = workout.imageUri != null ? {'path': workout.imageUri, 'blobUrl': workout.imageUri} : null;
-    
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text("Edit Workout"),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        final imageData = await ImagePickerUtil.pickImage(context);
-                        if (imageData != null) {
-                          setStateDialog(() { 
-                            editImageData = imageData; 
-                          });
-                        }
-                      },
-                      child: editImageData != null
-                          ? (kIsWeb
-                              ? (editImageData!['bytes'] != null
-                                  ? Image.memory(
-                                      editImageData!['bytes'] as Uint8List,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      editImageData!['blobUrl'] ?? editImageData!['path'],
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    ))
-                              : Image.file(
-                                  File(editImageData!['path']),
-                                  height: 100,
-                                  fit: BoxFit.cover,
-                                ))
-                          : const Text("Tap to add image"),
-                    ),
-                    TextField(
-                      controller: editTitleController,
-                      decoration: const InputDecoration(labelText: "Workout Title"),
-                    ),
-                    TextField(
-                      controller: editTraineeController,
-                      decoration: const InputDecoration(labelText: "Trainee ID"),
-                      keyboardType: TextInputType.number,
-                    ),
-                    TextField(
-                      controller: editSetsController,
-                      decoration: const InputDecoration(labelText: "Sets"),
-                      keyboardType: TextInputType.number,
-                    ),
-                    TextField(
-                      controller: editRepsController,
-                      decoration: const InputDecoration(labelText: "Reps/Sec"),
-                      keyboardType: TextInputType.number,
-                    ),
-                    TextField(
-                      controller: editRestController,
-                      decoration: const InputDecoration(labelText: "Rest Time (sec)"),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context, {"delete": true, "id": workout.id});
-                  },
-                  child: const Text("Delete", style: TextStyle(color: Colors.red)),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final updatedWorkout = WorkoutUpdateRequest(
-                      id: workout.id,
-                      eventTitle: editTitleController.text.isNotEmpty ? editTitleController.text : null,
-                      sets: int.tryParse(editSetsController.text),
-                      repsOrSecs: int.tryParse(editRepsController.text),
-                      restTime: int.tryParse(editRestController.text),
-                      imageUri: kIsWeb ? (editImageData?['blobUrl'] as String?) : (editImageData?['path'] as String?),
-                      userId: int.tryParse(editTraineeController.text),
-                    );
-                    Navigator.pop(context, updatedWorkout);
-                  },
-                  child: const Text("Save"),
-                )
-              ],
-            );
-          },
-        );
-      }
-    );
-  }
-  
+
   @override
   Widget build(BuildContext context) {
-    final workouts = ref.watch(adminProvider.select((p) => p.workouts));
-    final isLoading = ref.watch(adminProvider.select((p) => p.isLoading));
-    final error = ref.watch(adminProvider.select((p) => p.error));
-    
+    final adminState = ref.watch(adminWorkoutNotifierProvider);
+    // Display all workouts, not filtered by a specific userId from the widget
+    final workouts = adminState.workouts.toList(); 
+    final isLoading = adminState.isLoading;
+    final error = adminState.error;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Workouts"),
-        backgroundColor: const Color(0xFF241A87),
+        // Updated AppBar title for general workout management
+        title: const Text("Admin Workouts Management"), 
+        backgroundColor: DeepBlue,
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // Create Workout Form Section
             Container(
               padding: const EdgeInsets.all(16),
-              color: LightBlue,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Add Workout", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: _pickImage,
-                    child: _pickedImage != null
-                        ? (kIsWeb
-                            ? (_pickedImage!['bytes'] != null
-                                ? Image.memory(
-                                    _pickedImage!['bytes'] as Uint8List,
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.network(
-                                    _pickedImage!['blobUrl'] ?? _pickedImage!['path'],
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                  ))
-                            : Image.file(
-                                File(_pickedImage!['path']),
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ))
-                        : const Text("Tap to add image"),
+              color: LightBlue.withOpacity(0.3),
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Add New Workout", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: DeepBlue)),
+                      const SizedBox(height: 12),
+                      ImagePickerPreviewWidget(
+                        imageData: _pickedImage,
+                        onPickImage: _pickImage,
+                        pickButtonText: 'Select Workout Image',
+                        changeButtonText: 'Change Workout Image',
+                      ),
+                      if (_pickedImage != null)
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          label: const Text('Remove Image', style: TextStyle(color: Colors.redAccent)),
+                          onPressed: _removeCreateFormImage,
+                        ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(labelText: "Workout Title", border: OutlineInputBorder()),
+                        validator: (value) => value == null || value.isEmpty ? 'Title cannot be empty' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _traineeIdController,
+                        decoration: const InputDecoration(labelText: "Trainee ID", border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                        // Trainee ID field is now enabled for manual input
+                        enabled: true, 
+                        validator: (value) => value == null || value.isEmpty || int.tryParse(value) == null ? 'Valid Trainee ID required' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(child: TextFormField(controller: _setsController, decoration: const InputDecoration(labelText: "Sets", border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (value) => value == null || value.isEmpty || int.tryParse(value) == null ? 'Invalid' : null)),
+                        const SizedBox(width: 8),
+                        Expanded(child: TextFormField(controller: _repsController, decoration: const InputDecoration(labelText: "Reps/Sec", border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (value) => value == null || value.isEmpty || int.tryParse(value) == null ? 'Invalid' : null)),
+                      ]),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _restController,
+                        decoration: const InputDecoration(labelText: "Rest Time (sec)", border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => value == null || value.isEmpty || int.tryParse(value) == null ? 'Invalid' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: isLoading ? null : _createWorkout,
+                        label: const Text("Create Workout"),
+                        style: ElevatedButton.styleFrom(backgroundColor: DeepBlue, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(labelText: "Workout Title"),
-                  ),
-                  TextField(
-                    controller: _traineeIdController,
-                    decoration: const InputDecoration(labelText: "Trainee ID"),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: _setsController,
-                    decoration: const InputDecoration(labelText: "Sets"),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: _repsController,
-                    decoration: const InputDecoration(labelText: "Reps/Sec"),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: _restController,
-                    decoration: const InputDecoration(labelText: "Rest Time (sec)"),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _createWorkout,
-                    child: const Text("Create Workout"),
-                  ),
-                ],
+                ),
               ),
             ),
+            // Workouts List Section
             RefreshIndicator(
               onRefresh: _refreshWorkouts,
-              child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : error != null
-                  ? Center(child: Text('Error: $error'))
-                  : workouts.isEmpty
-                    ? const Center(child: Text('No workouts available'))
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: workouts.length,
-                        itemBuilder: (context, index) {
-                          final workout = workouts[index];
-                          return WorkoutCard(
-                            workout: workout,
-                            onEdit: () async {
-                              final result = await _showEditDialog(workout);
-                              if (result != null) {
-                                if (result is WorkoutUpdateRequest) {
-                                  ref.read(adminProvider.notifier).updateWorkout(result);
-                                } else if (result is Map && result["delete"] == true) {
-                                  final workoutId = result["id"] as int?;
-                                  if (workoutId != null) {
-                                    ref.read(adminProvider.notifier).deleteWorkout(workoutId);
-                                  }
-                                }
-                              }
-                            },
-                          );
-                        },
-                      ),
-            ),
-          ],
-        ),
-      ),
-    );
+              child: isLoading && workouts.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : error != null
+                      ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('Error: $error. Pull to refresh.', textAlign: TextAlign.center)))
+                      : workouts.isEmpty
+                          // Updated empty list message for general workout list
+                          ? const Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No workouts found.\nPull to refresh or add a new one above.', textAlign: TextAlign.center))) 
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.only(top: 8),
+                              itemCount: workouts.length,
+                              itemBuilder: (context, index) {
+                                final workout = workouts[index];
+                                return WorkoutCard(
+                                  workout: workout,
+                                  onEdit: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => EditWorkoutScreen(workout: workout),
+                                      ),
+                                    ).then((_) => _refreshWorkouts());
+                                  },
+                                  onDelete: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext ctx) {
+                                        return AlertDialog(
+                                          title: const Text('Confirm Delete'),
+                                          content: Text('Are you sure you want to delete "${workout.eventTitle}"? This action cannot be undone.'),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: const Text('Cancel'),
+                                              onPressed: () {
+                                                Navigator.of(ctx).pop();
+                                              },
+                                            ),
+                                            TextButton(
+                                              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                              onPressed: () async {
+                                                Navigator.of(ctx).pop();
+                                                try {
+                                                  await ref.read(adminWorkoutNotifierProvider.notifier).deleteWorkout(workout.id);
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(content: Text('Workout deleted successfully!'), backgroundColor: Colors.green),
+                                                    );
+                                                  }
+                                                } catch (e) {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(content: Text('Failed to delete workout: ${e.toString().replaceFirst("Exception: ", "")}') , backgroundColor: Colors.red),
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+                              }, // End itemBuilder
+                            ), // End ListView.builder
+            ), // End RefreshIndicator
+          ], // End children of main Column
+        ),   // End main Column
+      ),     // End SingleChildScrollView
+    );     // End Scaffold
   }
 }
