@@ -1,111 +1,139 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gym_management_flutter/core/models/event_model.dart';
-import 'package:gym_management_flutter/core/services/member_service.dart';
-import 'package:gym_management_flutter/core/services/api_service.dart';
-import 'package:gym_management_flutter/core/models/user_profile.dart';
-import 'package:gym_management_flutter/features/auth/presentation/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:gym_management_flutter/core/utils/snackbar_utils.dart';
+import 'package:gym_management_flutter/core/models/event_model.dart';
+import 'package:gym_management_flutter/features/member/presentation/providers/member_events_provider.dart';
+
+// Helper function to show error SnackBar
+void _showErrorSnackBar(BuildContext context, String message) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+// Helper function to show success SnackBar
+void _showSuccessSnackBar(BuildContext context, String message) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+}
 
 class MemberEventsScreen extends ConsumerStatefulWidget {
-  const MemberEventsScreen({Key? key}) : super(key: key);
+  const MemberEventsScreen({super.key});
 
   @override
-  _MemberEventsScreenState createState() => _MemberEventsScreenState();
+  ConsumerState<MemberEventsScreen> createState() => _MemberEventsScreenState();
 }
 
 class _MemberEventsScreenState extends ConsumerState<MemberEventsScreen> {
-  List<EventResponse> _events = [];
-  bool _isLoading = true;
-  String? _error;
-  final MemberService _memberService = MemberService(ApiService());
-
   @override
   void initState() {
     super.initState();
     _loadEvents();
   }
-
   Future<void> _loadEvents() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
     try {
-      final events = await _memberService.getMemberEvents();
-      setState(() {
-        _events = events;
-      });
+      final eventsProvider = ref.read(memberEventsProvider.notifier);
+      await eventsProvider.loadEvents();
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
       if (mounted) {
-        showErrorSnackBar(context, 'Failed to load events: $e');
+        _showErrorSnackBar(context, 'Failed to load events: $e');
       }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
-  Future<void> _handleEventRegistration(String eventId) async {
-    try {
-      await _memberService.registerForEvent(eventId);
-      if (mounted) {
-        showSuccessSnackBar(context, 'Successfully registered for the event!');
-        await _loadEvents(); // Refresh the events list
-      }
-    } catch (e) {
-      if (mounted) {
-        showErrorSnackBar(context, 'Failed to register for event: $e');
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Upcoming Events'),
-        backgroundColor: const Color(0xFF0000CD),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _loadEvents,
+    final eventsState = ref.watch(memberEventsProvider);
+    final isLoading = eventsState.isLoading;
+    final error = eventsState.error;
+    final events = eventsState.events;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Upcoming Events'),
+            backgroundColor: const Color(0xFF0000CD),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: isLoading ? null : _loadEvents,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $_error'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadEvents,
-                        child: const Text('Retry'),
+          body: isLoading && events.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Error: $error'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadEvents,
+                            child: const Text('Retry'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                )
-              : _events.isEmpty
-                  ? const Center(child: Text('No upcoming events'))
-                  : RefreshIndicator(
+                    )
+                  : events.isEmpty
+                      ? const Center(child: Text('No upcoming events'))
+                      : RefreshIndicator(
                       onRefresh: _loadEvents,
                       child: ListView.builder(
-                        itemCount: _events.length,
+                        itemCount: events.length,
                         itemBuilder: (context, index) {
-                          final event = _events[index];
-                          return EventCard(
-                            event: event,
-                            onRegister: _handleEventRegistration,
+                          final event = events[index];
+                          final eventDate = DateTime.tryParse(event.date) ?? DateTime.now();
+                          final eventTime = event.time ?? '12:00';
+                          final dateTime = DateTime(
+                            eventDate.year,
+                            eventDate.month,
+                            eventDate.day,
+                            int.tryParse(eventTime.split(':')[0]) ?? 0,
+                            int.tryParse(eventTime.split(':')[1]) ?? 0,
+                          );
+                          
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: ListTile(
+                              leading: event.imageUri != null
+                                  ? Image.network(
+                                      event.imageUri!,
+                                      width: 50,
+                                      height: 50,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => 
+                                          const Icon(Icons.event, size: 50),
+                                    )
+                                  : const Icon(Icons.event, size: 50),
+                              title: Text(
+                                event.title,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(DateFormat('MMM d, y • h:mm a').format(dateTime)),
+                                  if (event.location != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text('Location: ${event.location}'),
+                                  ],
+                                ],
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            ),
                           );
                         },
                       ),
@@ -114,26 +142,34 @@ class _MemberEventsScreenState extends ConsumerState<MemberEventsScreen> {
   }
 }
 
-class EventCard extends StatelessWidget {
+class EventCard extends ConsumerWidget {
   final EventResponse event;
-  final Future<void> Function(String) onRegister;
 
   const EventCard({
     Key? key,
     required this.event,
-    required this.onRegister,
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventDate = DateTime.tryParse(event.date) ?? DateTime.now();
+    final eventTime = event.time ?? '12:00';
+    final dateTime = DateTime(
+      eventDate.year,
+      eventDate.month,
+      eventDate.day,
+      int.tryParse(eventTime.split(':')[0]) ?? 0,
+      int.tryParse(eventTime.split(':')[1]) ?? 0,
+    );
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (event.imageUrl != null)
+          if (event.imageUri != null)
             Image.network(
-              event.imageUrl!,
+              event.imageUri!,
               height: 150,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
@@ -148,70 +184,50 @@ class EventCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.title ?? 'No Title',
+                  event.title,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (event.date != null)
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(dateTime),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (event.time != null)
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 16),
+                      const Icon(Icons.access_time, size: 16),
                       const SizedBox(width: 8),
                       Text(
-                        DateFormat('MMM dd, yyyy').format(event.date!),
+                        event.time!,
                         style: const TextStyle(fontSize: 14),
                       ),
                     ],
                   ),
-                if (event.time != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          event.time!,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (event.location != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
+                if (event.location != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
                           event.location!,
                           style: const TextStyle(fontSize: 14),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: event.isRegistered ?? false
-                      ? null
-                      : () => onRegister(event.id.toString()),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: event.isRegistered ?? false
-                        ? Colors.grey
-                        : const Color(0xFF0000CD),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                  child: Text(
-                    event.isRegistered ?? false
-                        ? 'Registered'
-                        : 'Register for Event',
-                  ),
-                ),
+                ],
               ],
             ),
           ),

@@ -15,37 +15,77 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _email = '';
   String _password = '';
   bool _showPassword = false;
+  bool _isLoading = false;
   
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     
     try {
+      // Clear any previous errors
+      ref.read(authProvider.notifier).clearError();
+      
+      // Show loading indicator
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
+      
+      debugPrint('Attempting login with email: $_email');
+      
+      // Clear focus to hide keyboard
+      FocusScope.of(context).unfocus();
+      
+      // Trigger login and wait for it to complete
       final success = await ref.read(authProvider.notifier).login(_email, _password);
       
-      if (success && mounted) {
-        // Get the current auth state after successful login
-        final authState = ref.read(authProvider);
-        
-        // Navigate based on user role
-        if (authState.user != null) {
-          final route = authState.user!.role.toLowerCase() == 'admin' 
-              ? '/admin' 
-              : '/member/workouts';
-          if (mounted) {
-            context.go(route);
-          }
-        }
-      } else if (mounted) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (!success) {
         // Show error message from auth state
         final error = ref.read(authProvider).error;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error ?? 'Login failed')),
-        );
+        debugPrint('Login failed: $error');
+        if (mounted && error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        debugPrint('Login successful, handling navigation...');
+        // Get the user from the auth state
+        final user = ref.read(authProvider).user;
+        if (user != null) {
+          // Navigate directly based on user role
+          final route = user.role.toLowerCase() == 'admin' ? '/admin' : '/member/workouts';
+          if (mounted) {
+            // Use a small delay to ensure the UI has updated
+            await Future.delayed(const Duration(milliseconds: 100));
+            if (mounted) {
+              debugPrint('Navigating to: $route');
+              context.go(route);
+            }
+          }
+        }
       }
     } catch (e) {
+      debugPrint('Error during login: $e');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: ${e.toString()}')),
+          const SnackBar(
+            content: Text('An error occurred. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -169,15 +209,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: authState.isLoading 
-                ? null 
-                : () async {
-                    // Hide keyboard when login button is pressed
-                    FocusScope.of(context).unfocus();
-                    await _login();
-                  },
-                  child: authState.isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
+                  onPressed: _isLoading 
+                      ? null 
+                      : () async {
+                          // Hide keyboard when login button is pressed
+                          FocusScope.of(context).unfocus();
+                          await _login();
+                        },
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
                       : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),

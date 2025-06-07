@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -64,6 +65,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final String _baseUrl = getBaseUrl();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   bool _initialized = false;
+  bool _mounted = true;
+  
+  bool get mounted => _mounted;
 
   AuthNotifier() : super(const AuthState(isLoading: true)) {
     // Initialize auth state
@@ -85,60 +89,150 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _saveAuthData(String token, User user) async {
     try {
+      debugPrint('Saving auth data for user: ${user.email}');
       await _secureStorage.write(key: 'auth_token', value: token);
-      await _secureStorage.write(key: 'user_data', value: json.encode(user.toJson()));
-      // Update state without triggering rebuild until everything is saved
-      state = AuthState(user: user);
+      await _secureStorage.write(
+        key: 'user_data',
+        value: json.encode(user.toJson()),
+      );
+      debugPrint('Auth data saved successfully');
+      if (mounted) {
+        state = AuthState(
+          user: user,
+          error: null,
+          isLoading: state.isLoading,
+        );
+      }
     } catch (e) {
-      state = AuthState(error: 'Failed to save auth data: $e');
+      final error = 'Failed to save auth data: $e';
+      debugPrint(error);
+      if (mounted) {
+        state = state.copyWith(error: error);
+      }
       rethrow;
     }
   }
 
+  // Clear any error from the state
+  void clearError() {
+    if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _mounted = false;
+    super.dispose();
+  }
+  
   Future<void> _clearAuthData() async {
     try {
       await _secureStorage.delete(key: 'auth_token');
       await _secureStorage.delete(key: 'user_data');
-      state = const AuthState();
+      if (mounted) {
+        state = const AuthState();
+      }
     } catch (e) {
-      state = AuthState(error: 'Failed to clear auth data: $e');
+      if (mounted) {
+        state = AuthState(error: 'Failed to clear auth data: $e');
+      }
     }
   }
 
   Future<bool> login(String email, String password) async {
     try {
+      debugPrint('Attempting login for email: $email');
       state = state.copyWith(isLoading: true, error: null);
       
+      // Ensure state is updated before proceeding
+      await Future.delayed(Duration.zero);
+      
+      // Remove /api from the URL as per user's note
+      final baseUrl = _baseUrl.replaceAll('/api', '');
+      final url = '$baseUrl/auth/login';
+      debugPrint('Using login URL: $url');
+      
       final response = await http.post(
-        Uri.parse('$_baseUrl/auth/login'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
-      );
+        body: json.encode({'email': email, 'password': password}),
+      ).timeout(const Duration(seconds: 30));
+
+      debugPrint('Login response status: ${response.statusCode}');
+      debugPrint('Login response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = json.decode(response.body);
-        final token = responseData['access_token'];
-        final userData = responseData['user'];
-        
-        if (token == null || userData == null) {
-          throw Exception('Invalid response format from server');
+        try {
+          final data = json.decode(response.body);
+          
+          // Handle the response format with access_token and user object
+          final userJson = data['user'] is Map ? data['user'] : data;
+          final token = data['access_token'] as String? ?? data['token'] as String?;
+          
+          if (userJson == null || token == null) {
+            throw Exception('Invalid response format: Missing user or token');
+          }
+          
+          debugPrint('User data: $userJson');
+          final user = User.fromJson(userJson);
+          
+          debugPrint('Login successful for user: ${user.email}, role: ${user.role}');
+          debugPrint('Saving auth data...');
+          
+          // Save auth data and wait for it to complete
+          await _saveAuthData(token, user);
+          
+          debugPrint('Auth data saved, updating state...');
+          
+          // Update state with the new user
+          if (mounted) {
+            state = state.copyWith(
+              user: user, 
+              error: null,
+              isLoading: false,
+            );
+            debugPrint('State updated with user: ${state.user?.email}');
+          }
+          
+          return true;
+        } catch (e) {
+          debugPrint('Error parsing login response: $e');
+          throw Exception('Failed to process login response');
         }
-
-        final user = User.fromJson(userData);
-        await _saveAuthData(token, user);
-        return true;
       } else {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['message']?.toString() ?? 'Login failed');
+        String errorMessage = 'Login failed';
+        try {
+          final errorData = json.decode(response.body);
+          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
+        } catch (_) {
+          errorMessage = 'Invalid server response';
+        }
+        debugPrint('Login failed: $errorMessage (Status: ${response.statusCode})');
+        state = state.copyWith(error: errorMessage, user: null);
+        return false;
       }
+    } on http.ClientException catch (e) {
+      final error = 'Network error: ${e.message}';
+      debugPrint(error);
+      state = state.copyWith(error: error, user: null);
+      return false;
+    } on TimeoutException {
+      const error = 'Connection timeout. Please check your internet connection.';
+      debugPrint(error);
+      state = state.copyWith(error: error, user: null);
+      return false;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      debugPrint('Unexpected error during login: $e');
+      state = state.copyWith(
+        error: 'An unexpected error occurred. Please try again.',
+        user: null,
+      );
       return false;
     } finally {
-      state = state.copyWith(isLoading: false);
+      if (mounted) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
@@ -211,20 +305,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> checkAuthStatus() async {
     try {
+      state = state.copyWith(isLoading: true, error: null);
+      
       final token = await _secureStorage.read(key: 'auth_token');
-      if (token == null) {
-        state = const AuthState(user: null);
-        return;
-      }
-      final userJson = await _secureStorage.read(key: 'user_data');
-      print('Checked token: $token'); // Debug log
-      if (token != null && userJson != null) {
-        state = AuthState(user: User.fromJson(json.decode(userJson)));
+      final userData = await _secureStorage.read(key: 'user_data');
+      
+      if (token != null && userData != null) {
+        try {
+          final user = User.fromJson(json.decode(userData));
+          state = state.copyWith(
+            user: user,
+            error: null,
+            isLoading: false,
+          );
+        } catch (e) {
+          // Clear invalid user data
+          await _clearAuthData();
+          state = state.copyWith(
+            user: null,
+            error: 'Session expired. Please login again.',
+            isLoading: false,
+          );
+        }
       } else {
-        state = const AuthState();
+        state = state.copyWith(
+          user: null,
+          error: null,
+          isLoading: false,
+        );
       }
     } catch (e) {
-      state = AuthState(error: 'Failed to check auth status: $e');
+      state = state.copyWith(
+        error: 'Failed to check authentication status: $e',
+        isLoading: false,
+      );
     }
   }
 }

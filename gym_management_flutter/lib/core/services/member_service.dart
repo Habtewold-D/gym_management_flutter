@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gym_management_flutter/core/models/event_model.dart' show EventResponse;
+import 'package:gym_management_flutter/core/models/event_model.dart';
 import 'package:gym_management_flutter/core/models/user_profile.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
 import 'package:gym_management_flutter/core/services/auth_service.dart';
@@ -20,11 +20,23 @@ class MemberService {
   String get _basePath => '$_baseUrl/member';
 
   MemberService(this._authService);
+  
+  // Helper method to get auth headers
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final token = _authService.token;
+    if (token == null) {
+      throw Exception('Not authenticated');
+    }
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+  }
 
   /// Fetches all workouts assigned to a specific member
   Future<List<WorkoutResponse>> getMemberWorkouts({required String userId}) async {
     try {
-      final token = await _authService.getToken();
+      final token = _authService.token;
       if (token == null) {
         throw Exception('Authentication token not found');
       }
@@ -57,6 +69,8 @@ class MemberService {
       rethrow;
     }
   }
+  
+
 
   /// Fetches a specific workout by ID
   Future<WorkoutResponse> getWorkoutById(String workoutId) async {
@@ -80,7 +94,7 @@ class MemberService {
     required String userId,
   }) async {
     try {
-      final token = await _authService.getToken();
+      final token = _authService.token;
       if (token == null) {
         throw Exception('Authentication token not found');
       }
@@ -114,7 +128,10 @@ class MemberService {
   /// Fetches all events available to the current member
   Future<List<EventResponse>> getMemberEvents() async {
     try {
-      final token = await _authService.getToken();
+      final token = _authService.token;
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
       final response = await _dio.get(
         '$_basePath/events',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
@@ -124,20 +141,6 @@ class MemberService {
           .toList();
     } on DioException catch (e) {
       debugPrint('Error fetching member events: ${e.message}');
-      rethrow;
-    }
-  }
-
-  /// Registers the current member for an event
-  Future<void> registerForEvent(String eventId) async {
-    try {
-      final token = await _authService.getToken();
-      await _dio.post(
-        '$_basePath/events/$eventId/register',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-    } on DioException catch (e) {
-      debugPrint('Error registering for event: ${e.message}');
       rethrow;
     }
   }
