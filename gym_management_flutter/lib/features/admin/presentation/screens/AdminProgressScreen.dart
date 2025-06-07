@@ -1,17 +1,28 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:gym_management_flutter/core/services/admin_service.dart';
+import 'package:gym_management_flutter/features/auth/presentation/providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:gym_management_flutter/navigation/app_routes.dart';
 
-class AdminProgressScreen extends StatefulWidget {
+class AdminProgressScreen extends ConsumerStatefulWidget {
   const AdminProgressScreen({Key? key}) : super(key: key);
   
   @override
-  _AdminProgressScreenState createState() => _AdminProgressScreenState();
+  ConsumerState<AdminProgressScreen> createState() => _AdminProgressScreenState();
 }
 
-class _AdminProgressScreenState extends State<AdminProgressScreen> {
+class _AdminProgressScreenState extends ConsumerState<AdminProgressScreen> {
   late Future<List<dynamic>> _progressFuture;
+  
+  Future<void> _logout() async {
+    await ref.read(authProvider.notifier).logout();
+    if (mounted) {
+      context.go(AppRoutes.LOGIN);
+    }
+  }
   
   Future<List<dynamic>> fetchProgress() async {
     final adminService = AdminService();
@@ -49,6 +60,13 @@ class _AdminProgressScreenState extends State<AdminProgressScreen> {
         ),
         backgroundColor: const Color(0xFF0000CD),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _refreshProgress,
