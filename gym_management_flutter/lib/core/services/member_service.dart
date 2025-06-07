@@ -7,22 +7,26 @@ import 'package:gym_management_flutter/core/models/event_model.dart';
 import 'package:gym_management_flutter/core/models/user_profile.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
 import 'package:gym_management_flutter/core/services/auth_service.dart';
+import 'package:flutter/foundation.dart';
 
 final memberServiceProvider = Provider<MemberService>((ref) {
-  final authService = ref.watch(authServiceProvider);
+  final authService = ref.read(authServiceProvider);
   return MemberService(authService);
 });
 
 class MemberService {
-  final AuthService _authService;
   final Dio _dio;
   final String _baseUrl;
-  late final String _basePath;
+  final String _basePath;
+  final String _usersPath;
+  final AuthService _authService;
 
-  MemberService(this._authService, {Dio? dio}) 
-      : _dio = dio ?? Dio(),
-        _baseUrl = getBaseUrl() {
-    _basePath = '$_baseUrl/member';
+  MemberService(AuthService authService, {Dio? dio}) 
+      : _authService = authService,
+        _dio = dio ?? Dio(),
+        _baseUrl = _getBaseUrl(),
+        _basePath = '${_getBaseUrl()}/member',
+        _usersPath = '${_getBaseUrl()}/users' {
     
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -36,11 +40,108 @@ class MemberService {
     ));
   }
   
-  static String getBaseUrl() {
-    if (const bool.fromEnvironment('dart.library.js_util')) {
+  static String _getBaseUrl() {
+    // Return localhost for mobile and web
+    if (kIsWeb) {
       return 'http://localhost:3000';
     }
+    // For Android emulator, use 10.0.2.2 to access localhost
     return 'http://10.0.2.2:3000';
+  }
+
+  /// Get the current authenticated user's ID
+  String? getCurrentUserId() {
+    try {
+      return _authService.userId;
+    } catch (e) {
+      debugPrint('Error getting current user ID: $e');
+      return null;
+    }
+  }
+  
+  /// Get the current user's token
+  Future<String?> getToken() async {
+    try {
+      return await _authService.getToken();
+    } catch (e) {
+      debugPrint('Error getting auth token: $e');
+      return null;
+    }
+  }
+
+  /// Fetches the current member's profile
+  Future<UserProfile> getProfile(int userId) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+      
+      final response = await _dio.get(
+        '$_usersPath/$userId',
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+      
+      if (response.statusCode == 401) {
+        throw Exception('Authentication required');
+      } else if (response.statusCode == 403) {
+        throw Exception('You do not have permission to view this profile');
+      } else if (response.statusCode != 200) {
+        throw Exception('Failed to load profile: ${response.data?['message'] ?? 'Unknown error'}');
+      }
+      
+      return UserProfile.fromJson(response.data);
+    } on DioException catch (e) {
+      debugPrint('Error fetching member profile: ${e.message}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Session expired. Please log in again.');
+      }
+      rethrow;
+    }
+  }
+
+  /// Updates the current member's profile
+  Future<UserProfile> updateProfile(UserProfile userProfile) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+      
+      final response = await _dio.patch(
+        '$_usersPath/${userProfile.id}',
+        data: userProfile.toJson(),
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+      
+      if (response.statusCode == 401) {
+        throw Exception('Authentication required');
+      } else if (response.statusCode == 403) {
+        throw Exception('You do not have permission to update this profile');
+      } else if (response.statusCode != 200) {
+        throw Exception('Failed to update profile: ${response.data?['message'] ?? 'Unknown error'}');
+      }
+      
+      return UserProfile.fromJson(response.data);
+    } on DioException catch (e) {
+      debugPrint('Error updating member profile: ${e.message}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Session expired. Please log in again.');
+      }
+      rethrow;
+    }
   }
 
   /// Fetches all workouts assigned to the current member
@@ -75,6 +176,8 @@ class MemberService {
       debugPrint('Error fetching member workouts: ${e.message}');
       if (e.response?.statusCode == 401) {
         throw Exception('Session expired. Please log in again.');
+      } else if (e.response?.statusCode == 403) {
+        throw Exception('You do not have permission to view your workouts');
       }
       rethrow;
     }
@@ -187,53 +290,35 @@ class MemberService {
   /// Fetches all events available to the current member
   Future<List<EventResponse>> getMemberEvents() async {
     try {
-      final token = _authService.token;
+      final token = await _authService.getToken();
       if (token == null) {
         throw Exception('Authentication token not found');
       }
+      
+      debugPrint('Fetching events from: $_baseUrl/events');
+      
       final response = await _dio.get(
-        '$_basePath/events',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        '$_baseUrl/events',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          validateStatus: (status) => status! < 500, // Don't throw for 4xx errors
+        ),
       );
-      return (response.data as List)
-          .map((json) => EventResponse.fromJson(json))
-          .toList();
+      
+      if (response.statusCode == 200) {
+        return (response.data as List)
+            .map((json) => EventResponse.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Failed to load events: ${response.statusCode}');
+      }
     } on DioException catch (e) {
+      debugPrint('Error fetching member events: $e');
+      if (e.response != null) {
+        debugPrint('Response data: ${e.response?.data}');
+        debugPrint('Status code: ${e.response?.statusCode}');
+      }
       debugPrint('Error fetching member events: ${e.message}');
-      rethrow;
-    }
-  }
-
-  /// Fetches the current member's profile
-  Future<UserProfile> getMemberProfile() async {
-    try {
-      final token = await _authService.getToken();
-      final response = await _dio.get(
-        '$_basePath/profile',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      return UserProfile.fromJson(response.data);
-    } on DioException catch (e) {
-      debugPrint('Error fetching member profile: ${e.message}');
-      rethrow;
-    }
-  }
-
-  /// Updates the current member's profile
-  Future<UserProfile> updateProfile(UserProfile profile) async {
-    try {
-      final token = await _authService.getToken();
-      final response = await _dio.put(
-        '$_basePath/profile',
-        data: profile.toJson(),
-        options: Options(headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        }),
-      );
-      return UserProfile.fromJson(response.data);
-    } on DioException catch (e) {
-      debugPrint('Error updating profile: ${e.message}');
       rethrow;
     }
   }

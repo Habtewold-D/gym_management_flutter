@@ -35,25 +35,38 @@ final memberEventsProvider = StateNotifierProvider<MemberEventsNotifier, MemberE
 
 class MemberEventsNotifier extends StateNotifier<MemberEventsState> {
   final MemberService _memberService;
+  bool _mounted = true;
   
   MemberEventsNotifier(this._memberService) : super(const MemberEventsState());
 
+  @override
+  void dispose() {
+    _mounted = false;
+    super.dispose();
+  }
+
   Future<void> loadEvents() async {
-    state = state.copyWith(isLoading: true, error: null);
+    if (!_mounted) return;
     
     try {
+      state = state.copyWith(isLoading: true, error: null);
+      
       final events = await _memberService.getMemberEvents();
+      
+      if (!_mounted) return;
+      
       state = state.copyWith(
         events: events,
         isLoading: false,
         error: null,
       );
     } catch (e) {
+      if (!_mounted) return;
+      
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
-      rethrow;
     }
   }
 }
