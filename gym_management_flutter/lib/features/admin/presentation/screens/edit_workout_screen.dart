@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
 import 'package:gym_management_flutter/features/admin/presentation/providers/admin_workout_provider.dart';
-import 'package:gym_management_flutter/features/admin/presentation/widgets/image_picker_preview_widget.dart';
 import 'package:gym_management_flutter/utils/image_picker_util.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 const DeepBlue = Color(0xFF0000CD); // Consider moving to a shared constants file
 const LightBlue = Color(0xFFE6E9FD);
@@ -23,6 +24,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
   late TextEditingController _setsController;
   late TextEditingController _repsController;
   late TextEditingController _restController;
+  late TextEditingController _userIdController;
   Map<String, dynamic>? _selectedImageData;
   late int _userId;
 
@@ -34,8 +36,8 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
     _repsController = TextEditingController(text: widget.workout.repsOrSecs.toString());
     _restController = TextEditingController(text: widget.workout.restTime.toString());
     _userId = widget.workout.userId;
+    _userIdController = TextEditingController(text: widget.workout.userId.toString());
     if (widget.workout.imageUri != null && widget.workout.imageUri!.isNotEmpty) {
-      // Initialize with existing image URI. ImagePickerPreviewWidget handles display.
       _selectedImageData = {'path': widget.workout.imageUri};
     }
   }
@@ -46,6 +48,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
     _setsController.dispose();
     _repsController.dispose();
     _restController.dispose();
+    _userIdController.dispose();
     super.dispose();
   }
 
@@ -58,7 +61,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
         });
       }
     } catch (e) {
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to pick image: ${e.toString().replaceFirst("Exception: ", "")}')),
         );
@@ -90,7 +93,6 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
       if (_selectedImageData != null) {
         imagePath = _selectedImageData!['path'] as String?;
       } else {
-        // If _selectedImageData is null, it means user wants to remove the image
         imagePath = null; 
       }
 
@@ -100,8 +102,8 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
         sets: sets,
         repsOrSecs: reps,
         restTime: rest,
-        imageUri: imagePath, // This can be a local path, an http URL, or null
-        userId: _userId, // Assuming userId doesn't change during edit
+        imageUri: imagePath,
+        userId: _userId,
       );
 
       try {
@@ -109,7 +111,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Workout updated successfully!')),
         );
-        Navigator.of(context).pop(); // Go back to the previous screen
+        Navigator.of(context).pop();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update workout: $e')),
@@ -124,7 +126,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Workout'),
+        title: const Text('Gym Workouts'),
         backgroundColor: DeepBlue,
         foregroundColor: Colors.white,
       ),
@@ -135,9 +137,61 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              // Image Picker Section
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: LightBlue,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: _selectedImageData != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            (kIsWeb && _selectedImageData!['path'].startsWith('blob'))
+                                ? Image.network(_selectedImageData!['path'], fit: BoxFit.cover)
+                                : Image.file(File(_selectedImageData!['path']), fit: BoxFit.cover),
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: GestureDetector(
+                                onTap: _removeImage,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo, size: 50, color: Colors.grey[600]),
+                            const SizedBox(height: 10),
+                            Text(
+                              "Tap to add an image",
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Workout Title'),
+                decoration: const InputDecoration(
+                  labelText: 'Event title',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a title';
@@ -147,8 +201,26 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                controller: _userIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Trainee Id',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
+                    return 'Please enter a valid number for Trainee ID';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _setsController,
-                decoration: const InputDecoration(labelText: 'Sets'),
+                decoration: const InputDecoration(
+                  labelText: 'Sets',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty || int.tryParse(value) == null) {
@@ -160,7 +232,10 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _repsController,
-                decoration: const InputDecoration(labelText: 'Reps/Secs'),
+                decoration: const InputDecoration(
+                  labelText: 'Reps/ sec',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty || int.tryParse(value) == null) {
@@ -172,7 +247,10 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _restController,
-                decoration: const InputDecoration(labelText: 'Rest Time (seconds)'),
+                decoration: const InputDecoration(
+                  labelText: 'Rest time',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty || int.tryParse(value) == null) {
@@ -182,23 +260,94 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
                 },
               ),
               const SizedBox(height: 20),
-              ImagePickerPreviewWidget(
-                imageData: _selectedImageData,
-                onPickImage: _pickImage,
-                pickButtonText: 'Change Workout Image',
-                changeButtonText: 'Change Workout Image',
-              ),
-              if (_selectedImageData != null && _selectedImageData!['path'] != null)
-                TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  label: const Text('Remove Image', style: TextStyle(color: Colors.redAccent)),
-                  onPressed: _removeImage,
-                ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: workoutState.isLoading ? null : _submitForm,
-                style: ElevatedButton.styleFrom(backgroundColor: DeepBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: workoutState.isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Update Workout'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: DeepBlue,
+                        side: const BorderSide(color: DeepBlue),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Workout'),
+                            content: Text('Are you sure you want to delete ${widget.workout.eventTitle}?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          try {
+                            await ref.read(adminWorkoutNotifierProvider.notifier).deleteWorkout(widget.workout.id);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Workout deleted successfully')),
+                              );
+                              Navigator.of(context).pop();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error deleting workout: $e')),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: workoutState.isLoading ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DeepBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: workoutState.isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Update'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -56,82 +56,140 @@ class EventCard extends StatelessWidget {
       elevation: 4,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        alignment: Alignment.bottomLeft,
         children: [
-          Stack(
-            alignment: Alignment.bottomLeft,
-            children: [
-              imageWidget,
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-                width: double.infinity,
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          imageWidget,
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${event.date} • ${event.time}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                    ),
-                  ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, color: DeepBlue, size: 20),
+                    onPressed: onEdit,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        event.location,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: DeepBlue),
-                        onPressed: onEdit,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.redAccent),
-                        onPressed: onDelete,
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                    onPressed: onDelete,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              event.date,
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4), // Add spacing between pills
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              event.time,
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4), // Add spacing between pills
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              event.location,
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -143,7 +201,7 @@ class EventCard extends StatelessWidget {
     return Container(
       height: 150,
       color: Colors.grey[300],
-      child: const Center(child: Icon(Icons.event, size: 50, color: Colors.grey)),
+      child: Center(child: Icon(Icons.event, size: 50, color: Colors.grey)),
     );
   }
 }
@@ -248,36 +306,26 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
       );
       
       await ref.read(adminEventNotifierProvider.notifier).createEvent(request);
-      
-      // Clear the form
-      _formKey.currentState!.reset();
-      setState(() {
-        _pickedImage = null;
-      });
-      
+      _titleController.clear();
+      _dateController.clear();
+      _timeController.clear();
+      _locationController.clear();
+      setState(() { _pickedImage = null; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Event created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Event created successfully!'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create event: ${e.toString().replaceFirst("Exception: ", "")}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to create event: ${e.toString().replaceFirst("Exception: ", "")}') , backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -340,98 +388,221 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
     await ref.read(adminEventNotifierProvider.notifier).loadEvents();
   }
 
-  Widget _buildEventForm() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: LightBlue.withOpacity(0.3),
-      child: Form(
-        key: _formKey,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Events"),
+        backgroundColor: const Color(0xFF241A87),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(adminEventNotifierProvider.notifier).loadEvents(),
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Add Event Section
               const Text(
-                'Add New Event',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: DeepBlue),
-              ),
-              const SizedBox(height: 12),
-              // Image Picker
-              ImagePickerPreviewWidget(
-                imageData: _pickedImage,
-                onPickImage: _pickImage,
-                pickButtonText: 'Select Event Image',
-                changeButtonText: 'Change Event Image',
-              ),
-              if (_pickedImage != null)
-                TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  label: const Text('Remove Image', style: TextStyle(color: Colors.redAccent)),
-                  onPressed: _removeImage,
-                ),
-              const SizedBox(height: 16),
-              // Title
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Event Title',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) => value == null || value.isEmpty ? 'Title cannot be empty' : null,
+                "Add Event",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              // Date and Time
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _dateController,
-                      readOnly: true,
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: LightBlue,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: _pickedImage != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            kIsWeb
+                                ? Image.network(_pickedImage!['path'], fit: BoxFit.cover)
+                                : Image.file(File(_pickedImage!['path']), fit: BoxFit.cover),
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: GestureDetector(
+                                onTap: _removeImage,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 5,
+                              left: 5,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.menu, color: Colors.white, size: 20),
+                                  onPressed: () {},
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo, size: 50, color: Colors.grey[600]),
+                            const SizedBox(height: 10),
+                            Text(
+                              "Tap to add event image",
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: "Event title",
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
                       onTap: _selectDate,
-                      decoration: const InputDecoration(
-                        labelText: 'Date',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.calendar_today),
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          controller: _dateController,
+                          decoration: const InputDecoration(
+                            labelText: "Date",
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Please select a date' : null,
+                        ),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _timeController,
-                      readOnly: true,
+                    const SizedBox(height: 16),
+                    GestureDetector(
                       onTap: _selectTime,
-                      decoration: const InputDecoration(
-                        labelText: 'Time',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.access_time),
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          controller: _timeController,
+                          decoration: const InputDecoration(
+                            labelText: "Time",
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Please select a time' : null,
+                        ),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _locationController,
+                      decoration: const InputDecoration(
+                        labelText: "Event location",
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value!.isEmpty ? 'Please enter a location' : null,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _createEvent,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DeepBlue,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        textStyle: const TextStyle(fontSize: 18),
+                      ),
+                      child: const Text("Create", style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              // Upcoming Events Section
+              const Text(
+                "Upcoming Events",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              // Location
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) => value == null || value.isEmpty ? 'Location cannot be empty' : null,
-              ),
-              const SizedBox(height: 16),
-              // Submit Button
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: _isLoading ? null : _createEvent,
-                label: const Text('Create Event'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DeepBlue,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
+              Consumer(
+                builder: (context, watch, child) {
+                  final eventState = ref.watch(adminEventNotifierProvider);
+                  if (eventState.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (eventState.error != null) {
+                    return Center(child: Text('Error: ${eventState.error}'));
+                  } else if (eventState.events.isEmpty) {
+                    return const Center(child: Text('No upcoming events found.'));
+                  } else {
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: eventState.events.length,
+                      itemBuilder: (context, index) {
+                        final event = eventState.events[index];
+                        return EventCard(
+                          event: event,
+                          onEdit: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => EditEventScreen(event: event, userId: widget.userId)));
+                          },
+                          onDelete: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Confirm Delete'),
+                                content: Text('Are you sure you want to delete "${event.title}"?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              try {
+                                await ref.read(adminEventNotifierProvider.notifier).deleteEvent(event.id);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Event deleted successfully')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error deleting event: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                        );
+                      },
+                    );
+                  }
+                },
               ),
             ],
           ),
@@ -439,95 +610,4 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final eventState = ref.watch(adminEventNotifierProvider);
-    final events = eventState.events.toList();
-    final isLoading = eventState.isLoading;
-    final error = eventState.error;
-
-    // Show success message if exists
-    if (eventState.successMessage != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(eventState.successMessage!),
-            backgroundColor: Colors.green,
-          ),
-        );
-        ref.read(adminEventNotifierProvider.notifier).clearMessages();
-      });
-    }
-    
-    // Show error message if exists
-    if (eventState.error != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(eventState.error!),
-            backgroundColor: Colors.red,
-          ),
-        );
-      });
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Events Management'),
-        backgroundColor: DeepBlue,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Event Form Section
-            _buildEventForm(),
-            // Events List Section
-            RefreshIndicator(
-              onRefresh: _refreshEvents,
-              child: isLoading && events.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              'Error: $error\nPull to refresh.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        )
-                      : events.isEmpty
-                          ? const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Text(
-                                  'No events found.\nPull to refresh or add a new one above.',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              padding: const EdgeInsets.only(top: 8),
-                              itemCount: events.length,
-                              itemBuilder: (context, index) {
-                                final event = events[index];
-                                return EventCard(
-                                  event: event,
-                                  onEdit: () => _navigateToEditEvent(event),
-                                  onDelete: () => _deleteEvent(event.id),
-                                );
-                              },
-                            ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
 }
