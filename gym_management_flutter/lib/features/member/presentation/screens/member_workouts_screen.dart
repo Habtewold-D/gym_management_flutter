@@ -7,10 +7,9 @@ import 'package:gym_management_flutter/features/auth/presentation/providers/auth
 import 'package:gym_management_flutter/features/member/presentation/providers/member_workout_provider.dart';
 
 // Color constants
-const Color primaryBlue = Color(0xFF1A18C6);
+const Color primaryBlue = Color(0xFF0000CD);
 const Color primaryGreen = Color(0xFF4CAF50);
-const Color lightGrey = Color(0xFFF8F9FB);
-const Color backgroundColor = Color(0xFFF5F5F5);
+const Color lightGreyBackground = Color(0xFFF5F5F5);
 const Color white = Colors.white;
 const Color black = Colors.black;
 
@@ -53,20 +52,20 @@ class _MemberWorkoutsScreenState extends ConsumerState<MemberWorkoutsScreen> {
     final state = ref.watch(memberWorkoutProvider);
     
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lightGreyBackground,
       appBar: AppBar(
         title: const Text(
-          'Daily Workout',
+          'Daily workout',
           style: TextStyle(
-            color: Colors.black,
+            color: white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: primaryBlue,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: white),
       ),
       body: RefreshIndicator(
         key: _refreshIndicatorKey,
@@ -131,13 +130,23 @@ class _MemberWorkoutsScreenState extends ConsumerState<MemberWorkoutsScreen> {
 
     return CustomScrollView(
       slivers: [
-        // Progress Card (no separate app bar needed as we have a regular AppBar)
-        const SliverToBoxAdapter(
-          child: SizedBox.shrink(),
-        ),
         // Progress Card
         SliverToBoxAdapter(
           child: _buildProgressCard(state),
+        ),
+        // Your Workouts Title
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+            child: Text(
+              'Your Workouts',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
         ),
         // Workouts List
         SliverPadding(
@@ -152,6 +161,7 @@ class _MemberWorkoutsScreenState extends ConsumerState<MemberWorkoutsScreen> {
                     workout.id.toString(),
                     workout.isCompleted,
                   ),
+                  isCompleting: state.isCompletingWorkout(workout.id.toString()),
                 );
               },
               childCount: state.workouts.length,
@@ -180,7 +190,7 @@ class _MemberWorkoutsScreenState extends ConsumerState<MemberWorkoutsScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryBlue,
                 ),
               ),
               Text(
@@ -196,8 +206,8 @@ class _MemberWorkoutsScreenState extends ConsumerState<MemberWorkoutsScreen> {
           const SizedBox(height: 12),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: Colors.grey[200],
-            valueColor: const AlwaysStoppedAnimation<Color>(primaryGreen),
+            backgroundColor: Colors.grey[300],
+            valueColor: const AlwaysStoppedAnimation<Color>(primaryBlue),
             minHeight: 10,
             borderRadius: BorderRadius.circular(5),
           ),
@@ -230,7 +240,7 @@ class WorkoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       height: 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -246,121 +256,66 @@ class WorkoutCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Stack(
+          fit: StackFit.expand,
           children: [
             // Background Image
             if (workout.imageUri != null && workout.imageUri!.isNotEmpty)
-              Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: workout.imageUri!,
-                  fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.fitness_center, size: 48, color: Colors.grey),
-                  ),
+              CachedNetworkImage(
+                imageUrl: workout.imageUri!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[200],
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                 ),
               )
             else
               Container(
                 color: Colors.grey[200],
-                child: const Center(
-                  child: Icon(Icons.fitness_center, size: 48, color: Colors.grey),
-                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
               ),
             
-            // Gradient Overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.3),
-                      Colors.black.withOpacity(0.7),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            
-            // Content
+            // Overlay content with workout details and button
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Title and Complete Button
+                  // Workout Title Pill and Done/Finish Button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Workout Name with Pill Background
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                      _buildPill(Text(
+                        workout.eventTitle,
+                        style: const TextStyle(
+                          color: black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
-                        child: Text(
-                          workout.eventTitle.isNotEmpty 
-                              ? workout.eventTitle 
-                              : 'Workout',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      
-                      // Complete Button
-                      ElevatedButton(
-                        onPressed: isCompleting ? null : onToggleCompletion,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: workout.isCompleted ? primaryGreen : primaryBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                          elevation: 2,
-                        ),
-                        child: isCompleting
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Text(
-                                workout.isCompleted ? 'Completed' : 'Mark Complete',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
+                      )),
+                      // Done/Finish Button
+                      _buildCompletionButton(workout.isCompleted),
                     ],
                   ),
                   
-                  const Spacer(),
-                  
-                  // Workout Details with Pill Backgrounds
+                  // Workout Details Pill
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildPill('${workout.sets} Sets', Icons.repeat),
-                      const SizedBox(width: 8),
-                      _buildPill('${workout.repsOrSecs} Reps', Icons.fitness_center),
-                      const SizedBox(width: 8),
-                      _buildPill('${workout.restTime}s Rest', Icons.timer),
+                      _buildPill(Text(
+                        'Sets: ${workout.sets} Reps/Secs: ${workout.repsOrSecs} Rest: ${workout.restTime}s',
+                        style: const TextStyle(
+                          color: black,
+                          fontSize: 12,
+                        ),
+                      )),
                     ],
                   ),
                 ],
@@ -371,58 +326,41 @@ class WorkoutCard extends StatelessWidget {
       ),
     );
   }
-  
-  Widget _buildPill(String text, IconData icon) {
+
+  Widget _buildPill(Widget content) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: primaryBlue),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            '$label: $value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+  Widget _buildCompletionButton(bool isCompleted) {
+    return ElevatedButton(
+      onPressed: onToggleCompletion,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isCompleted ? primaryGreen : primaryBlue,
+        foregroundColor: white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
         ),
-      ],
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: isCompleting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(white),
+              ),
+            )
+          : Text(isCompleted ? 'Done' : 'Finish', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 }

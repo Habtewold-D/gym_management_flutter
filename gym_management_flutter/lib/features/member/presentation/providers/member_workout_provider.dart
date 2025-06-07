@@ -96,6 +96,11 @@ class MemberWorkoutNotifier extends StateNotifier<MemberWorkoutState> {
       return;
     }
     
+    // Add workoutId to the set of completing workouts
+    final updatedCompletingWorkouts = Set<String>.from(state.completingWorkoutIds)..
+        add(workoutId);
+    _updateState(state.copyWith(completingWorkoutIds: updatedCompletingWorkouts));
+
     // Store the current state for potential rollback
     final currentWorkouts = List<WorkoutResponse>.from(state.workouts);
     
@@ -145,14 +150,11 @@ class MemberWorkoutNotifier extends StateNotifier<MemberWorkoutState> {
         _updateState(state.copyWith(error: errorMessage));
         log('Error updating workout status: $errorMessage', error: e, stackTrace: e.stackTrace);
         rethrow;
-      } catch (e, stackTrace) {
-        // Rollback on error
-        state = state.copyWith(
-          workouts: currentWorkouts,
-          error: 'An unexpected error occurred',
-        );
-        log('Unexpected error updating workout status', error: e, stackTrace: stackTrace);
-        rethrow;
+      } finally {
+        // Remove workoutId from the set of completing workouts regardless of success or failure
+        final finalCompletingWorkouts = Set<String>.from(state.completingWorkoutIds)..
+            remove(workoutId);
+        _updateState(state.copyWith(completingWorkoutIds: finalCompletingWorkouts));
       }
     } catch (e, stackTrace) {
       log('Error in markWorkoutAsCompleted: $e', error: e, stackTrace: stackTrace);
@@ -165,25 +167,33 @@ class MemberWorkoutState {
   final bool isLoading;
   final String? error;
   final List<WorkoutResponse> workouts;
+  final Set<String> completingWorkoutIds;
 
   const MemberWorkoutState({
     this.isLoading = false,
     this.error,
     this.workouts = const [],
+    this.completingWorkoutIds = const {},
   });
 
   MemberWorkoutState copyWith({
     bool? isLoading,
     String? error,
     List<WorkoutResponse>? workouts,
+    Set<String>? completingWorkoutIds,
   }) {
     return MemberWorkoutState(
       isLoading: isLoading ?? this.isLoading,
       error: error,
       workouts: workouts ?? this.workouts,
+      completingWorkoutIds: completingWorkoutIds ?? this.completingWorkoutIds,
     );
   }
   
   bool get hasError => error != null;
   bool get hasWorkouts => workouts.isNotEmpty;
+
+  bool isCompletingWorkout(String workoutId) {
+    return completingWorkoutIds.contains(workoutId);
+  }
 }
