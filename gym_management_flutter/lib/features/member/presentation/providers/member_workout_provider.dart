@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
@@ -15,6 +16,7 @@ final memberWorkoutProvider = StateNotifierProvider<MemberWorkoutNotifier, Membe
 class MemberWorkoutNotifier extends StateNotifier<MemberWorkoutState> {
   final MemberService _memberService;
   final AuthState _authState;
+  bool _isDisposed = false;
   
   MemberWorkoutNotifier(this._memberService, this._authState) : super(MemberWorkoutState()) {
     // Load workouts immediately if we're already authenticated
@@ -38,40 +40,66 @@ class MemberWorkoutNotifier extends StateNotifier<MemberWorkoutState> {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
-      final workouts = await _memberService.getMemberWorkouts(userId: _authState.user!.id.toString());
-      state = state.copyWith(
+      final workouts = await _memberService.getMemberWorkouts();
+      _updateState(state.copyWith(
         isLoading: false,
         workouts: workouts,
         error: null,
-      );
+      ));
+    } on DioException catch (e) {
+      final errorMessage = e.response?.statusCode == 401 
+          ? 'Session expired. Please log in again.'
+          : e.message ?? 'Failed to load workouts';
+          
+      _updateState(state.copyWith(
+        isLoading: false,
+        error: errorMessage,
+      ));
+      
+      if (e.response?.statusCode == 401) {
+        // Trigger logout or token refresh if needed
+      }
+      
+      log('Error loading workouts: $errorMessage', error: e, stackTrace: e.stackTrace);
     } catch (e, stackTrace) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: 'An unexpected error occurred',
       );
-      log('Error loading workouts: $e', error: e, stackTrace: stackTrace);
-      rethrow;
+      log('Unexpected error loading workouts', error: e, stackTrace: stackTrace);
     }
   }
   
   Future<void> refreshWorkouts() async {
-    state = state.copyWith(
+    _updateState(state.copyWith(
       isLoading: true,
       error: null,
-    );
+    ));
     await loadWorkouts();
   }
   
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  void _updateState(MemberWorkoutState newState) {
+    if (!_isDisposed) {
+      state = newState;
+    }
+  }
+
   Future<void> markWorkoutAsCompleted(String workoutId, bool isCompleted) async {
     if (_authState.user == null) {
-      state = state.copyWith(error: 'Authentication required');
+      _updateState(state.copyWith(error: 'Authentication required'));
       return;
     }
     
+    // Store the current state for potential rollback
+    final currentWorkouts = List<WorkoutResponse>.from(state.workouts);
+    
     try {
-      // Store the current state for potential rollback
-      final currentWorkouts = List<WorkoutResponse>.from(state.workouts);
-      
       // Update the local state optimistically
       final updatedWorkouts = state.workouts.map((workout) {
         if (workout.id.toString() == workoutId) {
@@ -92,28 +120,42 @@ class MemberWorkoutNotifier extends StateNotifier<MemberWorkoutState> {
         return workout;
       }).toList();
       
-      state = state.copyWith(workouts: updatedWorkouts);
+      _updateState(state.copyWith(workouts: updatedWorkouts));
       
       try {
-        // Call the API to update the workout status
-        await _memberService.updateWorkoutStatus(
-          workoutId: workoutId, 
-          isCompleted: isCompleted,
-          userId: _authState.user!.id.toString(),
-        );
+        // Call the API to mark workout as completed
+        await _memberService.markWorkoutAsCompleted(workoutId, isCompleted);
         
-        // Refresh the workouts list to ensure we have the latest data
+        // Refresh the workouts list to ensure consistency
         await loadWorkouts();
+      } on DioException catch (e) {
+        // Rollback on error
+        _updateState(state.copyWith(workouts: currentWorkouts));
         
-      } catch (e) {
-        // Revert to previous state if API call fails
-        state = state.copyWith(workouts: currentWorkouts);
+        String errorMessage;
+        if (e.response?.statusCode == 401) {
+          errorMessage = 'Session expired. Please log in again.';
+          // Trigger logout or token refresh if needed
+        } else if (e.response?.statusCode == 403) {
+          errorMessage = 'You do not have permission to update this workout';
+        } else {
+          errorMessage = 'Failed to update workout status: ${e.message}';
+        }
+        
+        _updateState(state.copyWith(error: errorMessage));
+        log('Error updating workout status: $errorMessage', error: e, stackTrace: e.stackTrace);
+        rethrow;
+      } catch (e, stackTrace) {
+        // Rollback on error
+        state = state.copyWith(
+          workouts: currentWorkouts,
+          error: 'An unexpected error occurred',
+        );
+        log('Unexpected error updating workout status', error: e, stackTrace: stackTrace);
         rethrow;
       }
-      
     } catch (e, stackTrace) {
-      state = state.copyWith(error: 'Failed to update workout status: ${e.toString()}');
-      log('Error marking workout as completed: $e', error: e, stackTrace: stackTrace);
+      log('Error in markWorkoutAsCompleted: $e', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }

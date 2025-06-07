@@ -15,38 +15,48 @@ final memberServiceProvider = Provider<MemberService>((ref) {
 
 class MemberService {
   final AuthService _authService;
-  final Dio _dio = Dio();
-  final String _baseUrl = 'http://localhost:3000';
-  String get _basePath => '$_baseUrl/member';
+  final Dio _dio;
+  final String _baseUrl;
+  late final String _basePath;
 
-  MemberService(this._authService);
+  MemberService(this._authService, {Dio? dio}) 
+      : _dio = dio ?? Dio(),
+        _baseUrl = getBaseUrl() {
+    _basePath = '$_baseUrl/member';
+    
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await _authService.getToken();
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+          options.headers['Content-Type'] = 'application/json';
+        }
+        return handler.next(options);
+      },
+    ));
+  }
   
-  // Helper method to get auth headers
-  Future<Map<String, String>> _getAuthHeaders() async {
-    final token = _authService.token;
-    if (token == null) {
-      throw Exception('Not authenticated');
+  static String getBaseUrl() {
+    if (const bool.fromEnvironment('dart.library.js_util')) {
+      return 'http://localhost:3000';
     }
-    return {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    };
+    return 'http://10.0.2.2:3000';
   }
 
-  /// Fetches all workouts assigned to a specific member
-  Future<List<WorkoutResponse>> getMemberWorkouts({required String userId}) async {
+  /// Fetches all workouts assigned to the current member
+  Future<List<WorkoutResponse>> getMemberWorkouts() async {
     try {
-      final token = _authService.token;
+      final token = await _authService.getToken();
       if (token == null) {
         throw Exception('Authentication token not found');
       }
       
       final response = await _dio.get(
-        '$_basePath/users/$userId/workouts',
+        '$_baseUrl/workouts/my-workout',
         options: Options(
           headers: {
-            'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
           },
           validateStatus: (status) => status! < 500,
         ),
@@ -94,25 +104,28 @@ class MemberService {
     required String userId,
   }) async {
     try {
-      final token = _authService.token;
+      final token = await _authService.getToken();
       if (token == null) {
         throw Exception('Authentication token not found');
       }
       
       final response = await _dio.patch(
-        '$_basePath/users/$userId/workouts/$workoutId/status',
-        data: {'isCompleted': isCompleted},
+        '$_baseUrl/workouts/$workoutId',
+        data: {
+          'isCompleted': isCompleted,
+          'userId': userId,
+        },
         options: Options(
           headers: {
-            'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
           },
           validateStatus: (status) => status! < 500,
         ),
       );
       
       if (response.statusCode == 401) {
-        throw Exception('Authentication required');
+        throw Exception('Session expired. Please log in again.');
       } else if (response.statusCode != 200) {
         throw Exception('Failed to update workout status: ${response.data?['message'] ?? 'Unknown error'}');
       }
@@ -121,6 +134,52 @@ class MemberService {
       if (e.response?.statusCode == 401) {
         throw Exception('Session expired. Please log in again.');
       }
+      rethrow;
+    }
+  }
+
+  Future<void> markWorkoutAsCompleted(String workoutId, bool isCompleted) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      debugPrint('Sending PATCH to: $_baseUrl/workouts/$workoutId/toggle-completion');
+      
+      final response = await _dio.patch(
+        '$_baseUrl/workouts/$workoutId/toggle-completion',
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response data: ${response.data}');
+
+      if (response.statusCode == 200) {
+        return;
+      } else {
+        throw Exception('Failed to update workout status: ${response.data?['message'] ?? 'Unknown error'}');
+      }
+    } on DioException catch (e) {
+      debugPrint('DioError in markWorkoutAsCompleted: ${e.message}');
+      debugPrint('Response data: ${e.response?.data}');
+      
+      if (e.response?.statusCode == 403) {
+        throw Exception('You do not have permission to update this workout');
+      } else if (e.response?.statusCode == 404) {
+        throw Exception('Workout not found');
+      } else if (e.response?.statusCode == 401) {
+        throw Exception('Session expired. Please log in again.');
+      }
+      rethrow;
+    } catch (e) {
+      debugPrint('Error in markWorkoutAsCompleted: $e');
       rethrow;
     }
   }
