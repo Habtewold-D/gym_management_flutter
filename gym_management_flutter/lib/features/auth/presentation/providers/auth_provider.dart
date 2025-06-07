@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,19 +63,35 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final String _baseUrl = getBaseUrl();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  bool _initialized = false;
 
-  AuthNotifier() : super(const AuthState());
+  AuthNotifier() : super(const AuthState(isLoading: true)) {
+    // Initialize auth state
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await checkAuthStatus();
+    } finally {
+      state = state.copyWith(isLoading: false);
+      _initialized = true;
+    }
+  }
+
+  bool get isInitialized => _initialized;
 
   User? get currentUser => state.user;
 
   Future<void> _saveAuthData(String token, User user) async {
     try {
-      print('Saving token: $token'); // Debug log
       await _secureStorage.write(key: 'auth_token', value: token);
       await _secureStorage.write(key: 'user_data', value: json.encode(user.toJson()));
+      // Update state without triggering rebuild until everything is saved
       state = AuthState(user: user);
     } catch (e) {
       state = AuthState(error: 'Failed to save auth data: $e');
+      rethrow;
     }
   }
 
@@ -89,8 +106,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<bool> login(String email, String password) async {
-    state = const AuthState(isLoading: true);
     try {
+      state = state.copyWith(isLoading: true, error: null);
+      
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
@@ -104,27 +122,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final responseData = json.decode(response.body);
         final token = responseData['access_token'];
         final userData = responseData['user'];
+        
         if (token == null || userData == null) {
-          state = const AuthState(error: 'Invalid response format from server');
-          return false; // fixed: removed accidental "|" character
+          throw Exception('Invalid response format from server');
         }
 
         final user = User.fromJson(userData);
         await _saveAuthData(token, user);
-
-        if (user.role.toLowerCase() != 'admin') {
-          state = AuthState(error: 'You do not have permission to access this area');
-          return false;
-        }
-
         return true;
       } else {
         final errorData = json.decode(response.body);
-        state = AuthState(error: errorData['message'] ?? 'Login failed');
-        return false;
+        throw Exception(errorData['message']?.toString() ?? 'Login failed');
       }
     } catch (e) {
-      state = AuthState(error: 'Could not connect to backend: $e');
+      state = state.copyWith(error: e.toString());
       return false;
     } finally {
       state = state.copyWith(isLoading: false);
@@ -201,6 +212,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> checkAuthStatus() async {
     try {
       final token = await _secureStorage.read(key: 'auth_token');
+      if (token == null) {
+        state = const AuthState(user: null);
+        return;
+      }
       final userJson = await _secureStorage.read(key: 'user_data');
       print('Checked token: $token'); // Debug log
       if (token != null && userJson != null) {
@@ -215,5 +230,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
+  final auth = AuthNotifier();
+  // Check auth status when the app starts
+  Future.microtask(() => auth.checkAuthStatus());
+  return auth;
 });

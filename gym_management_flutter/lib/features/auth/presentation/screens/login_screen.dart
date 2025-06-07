@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import 'package:gym_management_flutter/navigation/app_routes.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  final VoidCallback? onRegisterTapped; // added callback parameter
-  const LoginScreen({Key? key, this.onRegisterTapped}) : super(key: key);
+  const LoginScreen({Key? key}) : super(key: key);
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
@@ -17,12 +17,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _showPassword = false;
   
   Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      final authNotifier = ref.read(authProvider.notifier);
-      final success = await authNotifier.login(_email, _password);
+    if (!_formKey.currentState!.validate()) return;
+    
+    try {
+      final success = await ref.read(authProvider.notifier).login(_email, _password);
+      
       if (success && mounted) {
-        debugPrint('Login successful: ${authNotifier.state.user?.email}');
-        // The auth state change will trigger the UI update in main.dart.
+        // Get the current auth state after successful login
+        final authState = ref.read(authProvider);
+        
+        // Navigate based on user role
+        if (authState.user != null) {
+          final route = authState.user!.role.toLowerCase() == 'admin' 
+              ? '/admin' 
+              : '/member/workouts';
+          if (mounted) {
+            context.go(route);
+          }
+        }
+      } else if (mounted) {
+        // Show error message from auth state
+        final error = ref.read(authProvider).error;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error ?? 'Login failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: ${e.toString()}')),
+        );
       }
     }
   }
@@ -145,20 +169,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: authState.isLoading ? null : _login,
+                  onPressed: authState.isLoading 
+                ? null 
+                : () async {
+                    // Hide keyboard when login button is pressed
+                    FocusScope.of(context).unfocus();
+                    await _login();
+                  },
                   child: authState.isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 16),
-              // "Don't have an account?" row updated:
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Don't have an account? "),
                   GestureDetector(
-                    onTap: widget.onRegisterTapped, // Calls callback to switch to Register screen
+                    onTap: () => context.go('/register'),
                     child: const Text(
                       'Register',
                       style: TextStyle(
