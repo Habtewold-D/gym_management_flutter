@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:collection/collection.dart';
 import 'package:gym_management_flutter/core/models/member_model.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // new import
-import 'package:gym_management_flutter/core/services/admin_service.dart';  // added import for getBaseUrl
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:gym_management_flutter/core/services/admin_service.dart';
 
 class AdminMemberScreen extends StatefulWidget {
   const AdminMemberScreen({Key? key}) : super(key: key);
@@ -15,8 +15,8 @@ class AdminMemberScreen extends StatefulWidget {
 
 class _AdminMemberScreenState extends State<AdminMemberScreen> {
   late Future<List<Member>> _membersFuture;
-  String searchId = "";
   Member? searchedMember;
+  final TextEditingController _searchController = TextEditingController();
   
   Future<List<Member>> fetchMembers() async {
     final adminService = AdminService();
@@ -40,10 +40,33 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
     super.initState();
     _membersFuture = fetchMembers();
   }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
   
   Future<void> _refreshMembers() async {
+    try {
+      setState(() {
+        _membersFuture = fetchMembers();
+        searchedMember = null;
+        _searchController.clear();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error refreshing members: $e')),
+        );
+      }
+    }
+  }
+  
+  void _performSearch(List<Member> members) {
     setState(() {
-      _membersFuture = fetchMembers();
+      searchedMember = members.firstWhereOrNull((member) =>
+        member.id.toString() == _searchController.text.trim());
     });
   }
   
@@ -51,7 +74,7 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Members"),
+        title: const Text("Gym Progress"),
         backgroundColor: const Color(0xFF241A87),
       ),
       body: RefreshIndicator(
@@ -70,84 +93,121 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
             final filteredMembers = members.where((member) =>
                 member.role.toLowerCase() != "admin").toList();
             
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    key: const Key("search_by_id_field"),
-                    decoration: const InputDecoration(
-                      labelText: "Search by ID"
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      "Find member",
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        searchId = value;
-                        searchedMember = members.firstWhereOrNull((member) =>
-                          member.id.toString() == searchId.trim());
-                      });
-                    },
                   ),
-                ),
-                if (searchedMember != null)
-                  Expanded(child: MemberDetailSection(member: searchedMember!))
-                else
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: filteredMembers.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final member = filteredMembers[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          child: ListTile(
-                            title: Text(member.name),
-                            subtitle: Text('ID: ${member.id}'),
-                            trailing: IconButton(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            key: const Key("search_by_id_field"),
+                            decoration: const InputDecoration(
+                              labelText: "Trainee ID",
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () => _performSearch(members),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF241A87),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                          ),
+                          child: const Text("Search", style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (searchedMember != null)
+                    MemberDetailSection(member: searchedMember!)
+                  else ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text(
+                        "Members list",
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('ID')),
+                          DataColumn(label: Text('Name')),
+                          DataColumn(label: Text('Age')),
+                          DataColumn(label: Text('BMI')),
+                          DataColumn(label: Text('')), // For the delete icon
+                        ],
+                        rows: filteredMembers.map((member) => DataRow(
+                          cells: [
+                            DataCell(Text(member.id.toString())),
+                            DataCell(Text(member.name)),
+                            DataCell(Text(member.age?.toString() ?? 'N/A')),
+                            DataCell(Text(member.bmi?.toStringAsFixed(2) ?? 'N/A')),
+                            DataCell(IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
-                                try {
-                                  final adminService = AdminService();
-                                  await adminService.deleteMember(member.id);
-                                  // Refresh members list after deletion
-                                  setState(() {
-                                    _membersFuture = fetchMembers();
-                                  });
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error deleting member: $e'))
-                                  );
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Delete Member'),
+                                    content: Text('Are you sure you want to delete ${member.name}?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true) {
+                                  try {
+                                    final adminService = AdminService();
+                                    await adminService.deleteMember(member.id);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Member deleted successfully')),
+                                      );
+                                    }
+                                    _refreshMembers();
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error deleting member: $e')),
+                                      );
+                                    }
+                                  }
                                 }
                               },
-                            ),
-                          ),
-                        );
-                      },
+                            )),
+                          ],
+                        )).toList(),
+                      ),
                     ),
-                  ),
-              ],
+                  ],
+                ],
+              ),
             );
           },
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF241A87),
-        child: const Icon(Icons.person_add),
-        onPressed: () {
-          // Member registration UI
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("Add Member"),
-              content: const Text("Member registration UI goes here."),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                )
-              ],
-            ),
-          );
-        },
       ),
     );
   }
@@ -167,8 +227,11 @@ class MemberDetailSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Name: ${member.name}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text("ID: ${member.id}", style: const TextStyle(fontSize: 16)),
-            // Add more details if available
+            Text("Email: ${member.email}", style: const TextStyle(fontSize: 16)),
+            Text("Age: ${member.age?.toString() ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
+            Text("Height: ${member.height?.toStringAsFixed(1) ?? 'N/A'} cm", style: const TextStyle(fontSize: 16)),
+            Text("Weight: ${member.weight?.toStringAsFixed(1) ?? 'N/A'} KG", style: const TextStyle(fontSize: 16)),
+            Text("BMI: ${member.bmi?.toStringAsFixed(2) ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),

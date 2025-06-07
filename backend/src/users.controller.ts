@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Delete, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { UsersService } from './modules/users/users.service';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { Roles } from './modules/auth/decorators/roles.decorator';
@@ -15,5 +15,12 @@ export class UsersController {
   getMembers(): any {
     // Return only member users (filter out admin)
     return this.usersService.findAll();
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string): Promise<void> {
+    await this.usersService.remove(parseInt(id, 10));
   }
 }

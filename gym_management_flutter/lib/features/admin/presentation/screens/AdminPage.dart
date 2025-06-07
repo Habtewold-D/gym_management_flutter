@@ -34,10 +34,10 @@ class AdminPage extends ConsumerWidget {
     ];
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Dashboard"),
-        backgroundColor: const Color(0xFF241A87),
-      ),
+      // appBar: AppBar(
+      //   title: const Text("Admin Dashboard"),
+      //   backgroundColor: const Color(0xFF241A87),
+      // ),
       body: Navigator(
         pages: [
           MaterialPage(

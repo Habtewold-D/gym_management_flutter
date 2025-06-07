@@ -219,10 +219,10 @@ class AdminService {
   Future<void> deleteMember(int memberId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/admin/users/$memberId'),
+        Uri.parse('$baseUrl/users/$memberId'),
         headers: await getHeaders(),
       );
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Failed to delete member: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
