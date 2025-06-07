@@ -88,16 +88,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: const Color(0xFF0000CD),
         elevation: 0,
         actions: [
-          if (!profileState.isEditing)
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white),
-              onPressed: () {
-                ref.read(memberProfileProvider.notifier).setEditing(true);
-              },
-            ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
@@ -118,7 +111,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF1E88E5),
+                      color: Color(0xFF0000CD),
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -132,7 +125,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           child: Icon(
                             Icons.person,
                             size: 50,
-                            color: Color(0xFF1E88E5),
+                            color: Color(0xFF0000CD),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -192,30 +185,28 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         color: Colors.black87,
                       ),
                     ),
-                    if (!ref.watch(memberProfileProvider).isEditing)
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.grey),
-                        onPressed: () {
-                          ref.read(memberProfileProvider.notifier).setEditing(true);
-                        },
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.grey),
+                      onPressed: () {
+                        ref.read(memberProfileProvider.notifier).setEditing(true);
+                      },
+                    ),
                   ],
                 ),
-                const Divider(height: 24),
+                const Divider(height: 1.0),
                 _buildInfoRow('Name', userProfile.name),
-                const Divider(height: 24),
+                const Divider(height: 1.0),
                 _buildInfoRow('Email', userProfile.email),
-                const Divider(height: 24),
-                _buildInfoRow('Age', userProfile.age?.toString() ?? ''),
-                const Divider(height: 24),
+                const Divider(height: 1.0),
+                _buildInfoRow('Age', userProfile.age?.toString() != null && userProfile.age! > 0 ? '${userProfile.age} years' : ''),
+                const Divider(height: 1.0),
                 _buildInfoRow('Height', userProfile.height?.toString() ?? '', unit: 'cm'),
-                const Divider(height: 24),
+                const Divider(height: 1.0),
                 _buildInfoRow('Weight', userProfile.weight?.toString() ?? '', unit: 'kg'),
-                const Divider(height: 24),
+                const Divider(height: 1.0),
                 _buildInfoRow('BMI', userProfile.bmi?.toStringAsFixed(1) ?? ''),
-                const Divider(height: 24),
-                if (userProfile.joinDate != null) ...[                  
-                  const Divider(height: 24),
+                if (userProfile.joinDate != null) ...[
+                  const Divider(height: 1.0),
                   _buildInfoRow('Join Date', userProfile.joinDate!.split('T')[0]),
                 ],
               ],
@@ -260,13 +251,13 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildTextField('Name', _nameController, 'Enter your name'),
+                  _buildTextField('Name', _nameController, 'blen alemu'),
                   const SizedBox(height: 16),
-                  _buildNumberField('Age', _ageController, 'Enter your age'),
+                  _buildNumberField('Age', _ageController, '28'),
                   const SizedBox(height: 16),
-                  _buildNumberField('Height(cm):', _heightController, 'Enter height', unit: ''),
+                  _buildNumberField('Height(cm):', _heightController, '170'),
                   const SizedBox(height: 16),
-                  _buildNumberField('Weight(kg):', _weightController, 'Enter weight', unit: ''),
+                  _buildNumberField('Weight(kg):', _weightController, '60'),
                 ],
               ),
             ),
@@ -408,11 +399,19 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           obscureText: isPassword,
           decoration: InputDecoration(
-            labelText: label,
             hintText: hint,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -428,7 +427,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.blue, width: 2),
+              borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
           validator: (value) {
@@ -445,19 +444,25 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   Widget _buildNumberField(
     String label,
     TextEditingController controller,
-    String hint, {
-    String? unit,
-  }) {
+    String hint,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            labelText: label,
             hintText: hint,
-            suffixText: unit,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -472,7 +477,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.blue, width: 2),
+              borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
           validator: (value) {
