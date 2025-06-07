@@ -132,7 +132,19 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
                   ),
                   const SizedBox(height: 20),
                   if (searchedMember != null)
-                    MemberDetailSection(member: searchedMember!)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            "Members Detail",
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        MemberDetailSection(member: searchedMember!),
+                      ],
+                    )
                   else ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.0),
@@ -221,17 +233,59 @@ class MemberDetailSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.all(16),
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Name: ${member.name}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text("Email: ${member.email}", style: const TextStyle(fontSize: 16)),
-            Text("Age: ${member.age?.toString() ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
-            Text("Height: ${member.height?.toStringAsFixed(1) ?? 'N/A'} cm", style: const TextStyle(fontSize: 16)),
-            Text("Weight: ${member.weight?.toStringAsFixed(1) ?? 'N/A'} KG", style: const TextStyle(fontSize: 16)),
-            Text("BMI: ${member.bmi?.toStringAsFixed(2) ?? 'N/A'}", style: const TextStyle(fontSize: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Name:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(member.name, style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Email:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(member.email, style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Age:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(member.age?.toString() ?? 'N/A', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Height:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('${member.height?.toStringAsFixed(1) ?? 'N/A'} cm', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Weight:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('${member.weight?.toStringAsFixed(1) ?? 'N/A'} KG', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("BMI:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(member.bmi?.toStringAsFixed(2) ?? 'N/A', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
           ],
         ),
       ),
