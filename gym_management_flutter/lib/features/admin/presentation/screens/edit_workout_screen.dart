@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
 import 'package:gym_management_flutter/features/admin/presentation/providers/admin_workout_provider.dart';
+import 'package:gym_management_flutter/utils/image_picker_util.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Color constants
 const DeepBlue = Color(0xFF0000CD);
@@ -23,39 +26,13 @@ class EditWorkoutScreen extends ConsumerStatefulWidget {
 }
 
 class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Workout'),
-        backgroundColor: DeepBlue,
-        foregroundColor: Colors.white,
-      ),
-      body: _EditWorkoutForm(workout: widget.workout, userId: widget.userId),
-    );
-  }
-}
-
-class _EditWorkoutForm extends ConsumerStatefulWidget {
-  final WorkoutResponse workout;
-  final int userId;
-
-  const _EditWorkoutForm({
-    Key? key,
-    required this.workout,
-    required this.userId,
-  }) : super(key: key);
-
-  @override
-  ConsumerState<_EditWorkoutForm> createState() => _EditWorkoutFormState();
-}
-
-class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _setsController;
   late TextEditingController _repsController;
   late TextEditingController _restController;
+  late TextEditingController _traineeIdController;
+  Map<String, dynamic>? _selectedImageData;
   bool _isLoading = false;
 
   @override
@@ -65,6 +42,17 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
     _setsController = TextEditingController(text: widget.workout.sets.toString());
     _repsController = TextEditingController(text: widget.workout.repsOrSecs.toString());
     _restController = TextEditingController(text: widget.workout.restTime.toString());
+    _traineeIdController = TextEditingController(text: widget.userId.toString());
+    if (widget.workout.imageUri != null && widget.workout.imageUri!.isNotEmpty) {
+      if (kIsWeb && widget.workout.imageUri!.startsWith('blob:')) {
+        _selectedImageData = {'path': widget.workout.imageUri};
+      } else if (!kIsWeb) {
+        final file = File(widget.workout.imageUri!);
+        if (file.existsSync()) {
+          _selectedImageData = {'path': widget.workout.imageUri};
+        }
+      }
+    }
   }
 
   @override
@@ -73,7 +61,31 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
     _setsController.dispose();
     _repsController.dispose();
     _restController.dispose();
+    _traineeIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final imageData = await ImagePickerUtil.pickImageFromGallery();
+      if (imageData != null) {
+        setState(() {
+          _selectedImageData = imageData;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: ${e.toString().replaceFirst("Exception: ", "")}')),
+        );
+      }
+    }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _selectedImageData = null;
+    });
   }
 
   Future<void> _submitForm() async {
@@ -85,9 +97,26 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
 
     try {
       final title = _titleController.text;
-      final sets = int.tryParse(_setsController.text) ?? 0;
-      final reps = int.tryParse(_repsController.text) ?? 0;
-      final rest = int.tryParse(_restController.text) ?? 0;
+      final sets = int.tryParse(_setsController.text);
+      final reps = int.tryParse(_repsController.text);
+      final rest = int.tryParse(_restController.text);
+      final traineeId = int.tryParse(_traineeIdController.text);
+
+      if (sets == null || reps == null || rest == null || traineeId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enter valid numbers for all fields.')),
+          );
+        }
+        return;
+      }
+
+      String? imagePath;
+      if (_selectedImageData != null) {
+        imagePath = _selectedImageData!['path'] as String?;
+      } else {
+        imagePath = null; 
+      }
 
       final workoutUpdateRequest = WorkoutUpdateRequest(
         id: widget.workout.id,
@@ -95,8 +124,8 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
         sets: sets,
         repsOrSecs: reps,
         restTime: rest,
-        imageUri: widget.workout.imageUri,
-        userId: widget.userId,
+        imageUri: imagePath,
+        userId: traineeId,
       );
 
       await ref.read(adminWorkoutNotifierProvider.notifier).updateWorkout(workoutUpdateRequest);
@@ -105,18 +134,18 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Workout updated successfully!'),
-            backgroundColor: Green,
+            backgroundColor: Color(0xFF4CAF50),
           ),
         );
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}'),
             backgroundColor: Colors.red,
-          ),
+          ), 
         );
       }
     } finally {
@@ -148,25 +177,34 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
     );
 
     if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
       try {
         await ref.read(adminWorkoutNotifierProvider.notifier).deleteWorkout(widget.workout.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Workout deleted successfully'),
-              backgroundColor: Green,
+              backgroundColor: Color(0xFF4CAF50),
             ),
           );
-          Navigator.of(context).pop(true);
+          Navigator.of(context).pop();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting workout: $e'),
+              content: Text('Error deleting workout: ${e.toString().replaceFirst("Exception: ", "")}'),
               backgroundColor: Colors.red,
             ),
           );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
         }
       }
     }
@@ -174,112 +212,204 @@ class _EditWorkoutFormState extends ConsumerState<_EditWorkoutForm> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Title Field
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Workout Title',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.fitness_center),
+    final workoutState = ref.watch(adminWorkoutNotifierProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Gym Workouts'),
+        backgroundColor: DeepBlue,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const Text(
+                "Edit Workout",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              validator: (value) => value == null || value.isEmpty ? 'Please enter a title' : null,
-            ),
-            const SizedBox(height: 16),
-            
-            // Sets Field
-            TextFormField(
-              controller: _setsController,
-              decoration: const InputDecoration(
-                labelText: 'Number of Sets',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.repeat),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) => value == null || value.isEmpty ? 'Please enter number of sets' : null,
-            ),
-            const SizedBox(height: 16),
-            
-            // Reps Field
-            TextFormField(
-              controller: _repsController,
-              decoration: const InputDecoration(
-                labelText: 'Reps or Seconds',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.repeat_one),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) => value == null || value.isEmpty ? 'Please enter reps or seconds' : null,
-            ),
-            const SizedBox(height: 16),
-            
-            // Rest Time Field
-            TextFormField(
-              controller: _restController,
-              decoration: const InputDecoration(
-                labelText: 'Rest Time (seconds)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.timer),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) => value == null || value.isEmpty ? 'Please enter rest time' : null,
-            ),
-            const SizedBox(height: 24),
-            
-            // Update Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitForm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DeepBlue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: LightBlue,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey),
                   ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+                  child: _selectedImageData != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            (kIsWeb && _selectedImageData!['path'].startsWith('blob'))
+                                ? Image.network(_selectedImageData!['path'], fit: BoxFit.cover)
+                                : Image.file(File(_selectedImageData!['path']), fit: BoxFit.cover),
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: GestureDetector(
+                                onTap: _removeImage,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo, size: 50, color: Colors.grey[600]),
+                            const SizedBox(height: 10),
+                            Text(
+                              "Tap to add an image",
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
-                      )
-                    : const Text(
-                        'Update Workout',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Event title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _traineeIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Trainee Id',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
+                    return 'Please enter a valid number for Trainee ID';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _setsController,
+                decoration: const InputDecoration(
+                  labelText: 'Sets',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
+                    return 'Please enter a valid number for sets';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _repsController,
+                decoration: const InputDecoration(
+                  labelText: 'Reps/ sec',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
+                    return 'Please enter a valid number for reps/secs';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _restController,
+                decoration: const InputDecoration(
+                  labelText: 'Rest time',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
+                    return 'Please enter a valid number for rest time';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: DeepBlue,
+                        side: const BorderSide(color: DeepBlue),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // Delete Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _deleteWorkout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                      child: const Text('Cancel'),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Delete Workout',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _deleteWorkout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DeepBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Update'),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
