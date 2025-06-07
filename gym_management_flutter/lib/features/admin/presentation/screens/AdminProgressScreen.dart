@@ -43,36 +43,82 @@ class _AdminProgressScreenState extends State<AdminProgressScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Progress"),
-        backgroundColor: const Color(0xFF241A87),
+        title: const Text(
+          "Gym Progress",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF0000CD),
+        centerTitle: true,
       ),
       body: RefreshIndicator(
         onRefresh: _refreshProgress,
-        child: FutureBuilder<List<dynamic>>(
-          future: _progressFuture,
-          builder: (context, snapshot) {
-            if(snapshot.connectionState == ConnectionState.waiting)
-              return const Center(child: CircularProgressIndicator());
-            if(snapshot.hasError)
-              return Center(child: Text('Error: ${snapshot.error}'));
-            if(!snapshot.hasData || snapshot.data!.isEmpty)
-              return const Center(child: Text('No progress found'));
-              
-            final progressList = snapshot.data!;
-            return ListView.builder(
-              itemCount: progressList.length,
-              itemBuilder: (context, index) {
-                final progress = progressList[index];
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: ListTile(
-                    title: Text("User: ${progress['name'] ?? 'N/A'}"),
-                    subtitle: Text("Completion: ${progress['progressPercentage'] ?? 0}%"),
-                  ),
-                );
-              },
-            );
-          },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+              child: Text(
+                'Daily Progress',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0000CD),
+                ),
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                future: _progressFuture,
+                builder: (context, snapshot) {
+                  if(snapshot.connectionState == ConnectionState.waiting)
+                    return const Center(child: CircularProgressIndicator());
+                  if(snapshot.hasError)
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  if(!snapshot.hasData || snapshot.data!.isEmpty)
+                    return const Center(child: Text('No progress found'));
+                    
+                  final progressList = snapshot.data!;
+                  return ListView.builder(
+                    itemCount: progressList.length,
+                    itemBuilder: (context, index) {
+                      final progress = progressList[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        color: const Color(0xFFB0C4DE),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${index + 1}. ${progress['name'] ?? 'N/A'}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              Text(
+                                '${progress['progressPercentage'] ?? 0}%',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
