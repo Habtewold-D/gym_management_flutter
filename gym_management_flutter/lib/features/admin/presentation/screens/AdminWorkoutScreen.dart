@@ -461,7 +461,7 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                         return WorkoutCard(
                           workout: workout,
                           onEdit: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => EditWorkoutScreen(workout: workout)));
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => EditWorkoutScreen(workout: workout, userId: workout.userId)));
                           },
                           onDelete: () async {
                             final confirmed = await showDialog<bool>(
