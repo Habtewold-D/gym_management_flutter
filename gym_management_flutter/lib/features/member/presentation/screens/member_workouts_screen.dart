@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:gym_management_flutter/core/models/workout_models.dart';
@@ -239,128 +241,136 @@ class WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      height: 200,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+    Widget imageWidget;
+    if (workout.imageUri != null && workout.imageUri!.isNotEmpty) {
+      if (workout.imageUri!.startsWith('http') || (kIsWeb && workout.imageUri!.startsWith('blob'))) {
+        imageWidget = Image.network(
+          workout.imageUri!,
+          fit: BoxFit.cover,
+          height: 150,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 150,
+            color: Colors.grey[300],
+            child: Center(child: Icon(Icons.broken_image, color: Colors.grey[600])),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background Image
-            if (workout.imageUri != null && workout.imageUri!.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: workout.imageUri!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                  alignment: Alignment.center,
-                  child: const CircularProgressIndicator(strokeWidth: 2),
+        );
+      } else if (!kIsWeb) {
+        final file = File(workout.imageUri!);
+        if (file.existsSync()) {
+          imageWidget = Image.file(
+            file,
+            fit: BoxFit.cover,
+            height: 150,
+            width: double.infinity,
+            errorBuilder: (context, error, stackTrace) => Container(
+              height: 150,
+              color: Colors.grey[300],
+              child: Center(child: Icon(Icons.broken_image, color: Colors.grey[600])),
+            ),
+          );
+        } else {
+          imageWidget = Container(
+            height: 150,
+            color: Colors.grey[300],
+            child: Center(child: Icon(Icons.image_not_supported, color: Colors.grey[600], size: 50)),
+          );
+        }
+      } else { // Web, but not http/blob (e.g. invalid local path for web)
+        imageWidget = Container(
+          height: 150,
+          color: Colors.grey[300],
+          child: Center(child: Icon(Icons.image_not_supported, color: Colors.grey[600], size: 50)),
+        );
+      }
+    } else {
+      imageWidget = Container(
+        height: 150,
+        color: Colors.grey[300],
+        child: Center(child: Icon(Icons.fitness_center, size: 50, color: Colors.grey[600])),
+      );
+    }
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        alignment: Alignment.bottomLeft,
+        children: [
+          imageWidget,
+          // Completion Button
+          Positioned(
+            top: 8,
+            right: 8,
+            child: ElevatedButton(
+              onPressed: onToggleCompletion,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: workout.isCompleted ? primaryGreen : primaryBlue,
+                foregroundColor: white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[200],
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                ),
-              )
-            else
-              Container(
-                color: Colors.grey[200],
-                alignment: Alignment.center,
-                child: const Icon(Icons.fitness_center, size: 50, color: Colors.grey),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            
-            // Overlay content with workout details and button
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+              child: isCompleting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(white),
+                      ),
+                    )
+                  : Text(
+                      workout.isCompleted ? 'Done' : 'Finish',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
+          // Workout Details
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Workout Title Pill and Done/Finish Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildPill(Text(
-                        workout.eventTitle,
-                        style: const TextStyle(
-                          color: black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      )),
-                      // Done/Finish Button
-                      _buildCompletionButton(workout.isCompleted),
-                    ],
+                  Text(
+                    workout.eventTitle,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
-                  
-                  // Workout Details Pill
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildPill(Text(
-                        'Sets: ${workout.sets} Reps/Secs: ${workout.repsOrSecs} Rest: ${workout.restTime}s',
-                        style: const TextStyle(
-                          color: black,
-                          fontSize: 12,
-                        ),
-                      )),
-                    ],
+                  Text(
+                    '${workout.sets} sets ${workout.repsOrSecs} reps ${workout.restTime} sec',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildPill(Widget content) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: content,
-    );
-  }
-
-  Widget _buildCompletionButton(bool isCompleted) {
-    return ElevatedButton(
-      onPressed: onToggleCompletion,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isCompleted ? primaryGreen : primaryBlue,
-        foregroundColor: white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: isCompleting
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(white),
-              ),
-            )
-          : Text(isCompleted ? 'Done' : 'Finish', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 }

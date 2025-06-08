@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:gym_management_flutter/core/models/event_model.dart';
 import 'package:gym_management_flutter/features/member/presentation/providers/member_events_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io';
 
 // Helper function to show error SnackBar
 void _showErrorSnackBar(BuildContext context, String message) {
@@ -192,6 +194,14 @@ class EventCard extends ConsumerWidget {
     required this.event,
   }) : super(key: key);
 
+  Widget _buildPlaceholderImage() {
+    return Container(
+      height: 150,
+      color: Colors.grey[300],
+      child: const Center(child: Icon(Icons.event, size: 50, color: Colors.grey)),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventDate = DateTime.tryParse(event.date) ?? DateTime.now();
@@ -204,136 +214,111 @@ class EventCard extends ConsumerWidget {
       int.tryParse(eventTime.split(':')[1]) ?? 0,
     );
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      height: 200,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+    Widget imageWidget;
+    if (event.imageUri != null && event.imageUri!.isNotEmpty) {
+      if (event.imageUri!.startsWith('http') || (kIsWeb && event.imageUri!.startsWith('blob'))) {
+        imageWidget = Image.network(
+          event.imageUri!,
+          fit: BoxFit.cover,
+          height: 150,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+        );
+      } else if (!kIsWeb) {
+        final file = File(event.imageUri!);
+        if (file.existsSync()) {
+          imageWidget = Image.file(
+            file,
+            fit: BoxFit.cover,
+            height: 150,
+            width: double.infinity,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+          );
+        } else {
+          imageWidget = _buildPlaceholderImage();
+        }
+      } else {
+        imageWidget = _buildPlaceholderImage();
+      }
+    } else {
+      imageWidget = _buildPlaceholderImage();
+    }
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        alignment: Alignment.bottomLeft,
+        children: [
+          imageWidget,
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Column for Date, Time, Location Pills
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPill(Icons.calendar_today, DateFormat('M/d/yyyy').format(eventDate)),
+                    const SizedBox(height: 4),
+                    _buildPill(Icons.access_time, DateFormat('h:mm a').format(dateTime)),
+                    const SizedBox(height: 4),
+                    _buildPill(Icons.location_on, event.location ?? ''),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (event.imageUri != null && event.imageUri!.isNotEmpty)
-              Image.network(
-                event.imageUri!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[200],
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                ),
-              )
-            else
-              Container(
-                color: Colors.grey[200],
-                alignment: Alignment.center,
-                child: const Icon(Icons.event, size: 50, color: Colors.grey),
-              ),
-            
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildPill(Text(
-                        event.title,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      )),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildPill(Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_today, size: 12, color: Colors.black),
-                              const SizedBox(width: 4),
-                              Text(
-                                DateFormat('M/d/yyyy').format(eventDate),
-                                style: const TextStyle(color: Colors.black, fontSize: 12),
-                              ),
-                            ],
-                          )),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildPill(Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.access_time, size: 12, color: Colors.black),
-                              const SizedBox(width: 4),
-                              Text(
-                                DateFormat('h:mm a').format(dateTime),
-                                style: const TextStyle(color: Colors.black, fontSize: 12),
-                              ),
-                            ],
-                          )),
-                        ],
-                      ),
-                      if (event.location != null && event.location!.isNotEmpty) 
-                        const SizedBox(height: 4),
-                      if (event.location != null && event.location!.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPill(Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.location_on, size: 12, color: Colors.black),
-                                const SizedBox(width: 4),
-                                Text(
-                                  event.location!,
-                                  style: const TextStyle(color: Colors.black, fontSize: 12),
-                                ),
-                              ],
-                            )),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildPill(Widget content) {
+  Widget _buildPill(IconData icon, String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: content,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.black),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 12, color: Colors.black),
+          ),
+        ],
+      ),
     );
   }
 }
