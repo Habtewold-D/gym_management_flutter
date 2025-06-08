@@ -110,13 +110,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
                 child: Image.asset(
                   'assets/images/gym_logo.png',
-                  height: 140,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+                  height: 220,
+                  width: double.infinity,  // Make image take full width
+                  fit: BoxFit.cover,  // Changed to cover to fill the width
                 ),
               ),
               const SizedBox(height: 24),
@@ -124,16 +125,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 'Welcome Back',
                 style: TextStyle(
                   color: Color(0xFF241A87),
-                  fontSize: 22,
+                  fontSize: 28,  // Increased from 22
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Login to your account',
-                style: TextStyle(fontSize: 15, color: Colors.black87),
+                style: TextStyle(fontSize: 18, color: Colors.black87),  // Increased from 15
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),  // Increased from 24
               Form(
                 key: _formKey,
                 child: Column(
@@ -160,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                       onChanged: (value) => _email = value,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 32),  // Increased from 24
                     TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -188,6 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                       onChanged: (value) => _password = value,
                     ),
+                    const SizedBox(height: 24),  // Reduced space after password field
                   ],
                 ),
               ),
@@ -228,18 +230,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),  // Reduced space before sign up link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have an account? "),
+                  const Text(
+                    "Don't have an account? ",
+                    style: TextStyle(fontSize: 16),  // Increased from default
+                  ),
                   GestureDetector(
                     onTap: () => context.go('/register'),
                     child: const Text(
-                      'Register',
+'Register',
                       style: TextStyle(
                         color: Color(0xFF241A87),
                         fontWeight: FontWeight.bold,
+                        fontSize: 16,  // Increased from default
                       ),
                     ),
                   ),
