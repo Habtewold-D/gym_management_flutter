@@ -374,18 +374,18 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
               // Add Event Section
               const Text(
                 "Add Event",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  height: 200,
+                  height: 180,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: LightBlue,
+                    color: const Color(0xFFE6E9FD),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey),
+                    border: Border.all(color: const Color(0xFFB3B9F8)),
                   ),
                   child: _pickedImage != null
                       ? Stack(
@@ -441,65 +441,103 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
                         ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Form(
                 key: _formKey,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextFormField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                        labelText: "Event title",
+                        labelText: 'Event Title',
                         border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                       ),
-                      validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a title';
+                        }
+                        return null;
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _dateController,
+                      decoration: const InputDecoration(
+                        labelText: 'Date (YYYY-MM-DD)',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                        suffixIcon: Icon(Icons.calendar_today, size: 20),
+                      ),
                       onTap: _selectDate,
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          controller: _dateController,
-                          decoration: const InputDecoration(
-                            labelText: "Date",
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) => value!.isEmpty ? 'Please select a date' : null,
-                        ),
-                      ),
+                      readOnly: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a date';
+                        }
+                        return null;
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _timeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Time (HH:MM)',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                        suffixIcon: Icon(Icons.access_time, size: 20),
+                      ),
                       onTap: _selectTime,
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          controller: _timeController,
-                          decoration: const InputDecoration(
-                            labelText: "Time",
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) => value!.isEmpty ? 'Please select a time' : null,
-                        ),
-                      ),
+                      readOnly: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a time';
+                        }
+                        return null;
+                      },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _locationController,
                       decoration: const InputDecoration(
-                        labelText: "Event location",
+                        labelText: 'Location',
                         border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                       ),
-                      validator: (value) => value!.isEmpty ? 'Please enter a location' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a location';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _createEvent,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DeepBlue,
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                        textStyle: const TextStyle(fontSize: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _createEvent,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFF241A87),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Create Event',
+                                style: TextStyle(fontSize: 16, color: Colors.white),
+                              ),
                       ),
-                      child: const Text("Create", style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),

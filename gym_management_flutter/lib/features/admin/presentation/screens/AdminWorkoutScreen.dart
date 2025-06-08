@@ -177,6 +177,7 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
   final _repsController = TextEditingController();
   final _restController = TextEditingController();
   Map<String, dynamic>? _pickedImage;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -221,40 +222,63 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
     });
   }
 
-  void _createWorkout() async {
+  Future<void> _createWorkout() async {
     if (_formKey.currentState!.validate()) {
-      final title = _titleController.text;
-      final traineeId = int.tryParse(_traineeIdController.text); // Should always be widget.userId
-      final sets = int.tryParse(_setsController.text);
-      final reps = int.tryParse(_repsController.text);
-      final rest = int.tryParse(_restController.text);
+      setState(() {
+        _isLoading = true;
+      });
 
-      if (traineeId == null || sets == null || reps == null || rest == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please ensure all numeric fields are valid numbers.'), backgroundColor: Colors.orange),
-          );
-        }
-        return;
-      }
-
-      final workoutRequest = WorkoutRequest(
-        eventTitle: title,
-        sets: sets,
-        repsOrSecs: reps,
-        restTime: rest,
-        imageUri: _pickedImage?['path'] as String?,
-        isCompleted: false,
-        userId: traineeId, // Use the parsed (and fixed) traineeId
-      );
       try {
+        final title = _titleController.text.trim();
+        final traineeId = int.tryParse(_traineeIdController.text);
+        final sets = int.tryParse(_setsController.text);
+        final reps = int.tryParse(_repsController.text);
+        final rest = int.tryParse(_restController.text);
+
+        // Validate all required fields
+        if (title.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enter a title'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+
+        if (traineeId == null || sets == null || reps == null || rest == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please ensure all numeric fields are valid numbers.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+
+
+        // At this point, all values are guaranteed to be non-null
+        final workoutRequest = WorkoutRequest(
+          eventTitle: title,
+          sets: sets, // non-null due to validation above
+          repsOrSecs: reps, // non-null due to validation above
+          restTime: rest, // non-null due to validation above
+          imageUri: _pickedImage?['path'] as String?,
+          isCompleted: false,
+          userId: traineeId, // non-null due to validation above
+        );
+
         await ref.read(adminWorkoutNotifierProvider.notifier).createWorkout(workoutRequest);
+        
         _titleController.clear();
-        // _traineeIdController should not be cleared as it's fixed for this screen
         _setsController.clear();
         _repsController.clear();
         _restController.clear();
-        setState(() { _pickedImage = null; });
+        setState(() { _pickedImage = null; });;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Workout created successfully!'), backgroundColor: Colors.green),
@@ -265,6 +289,12 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to create workout: ${e.toString().replaceFirst("Exception: ", "")}') , backgroundColor: Colors.red),
           );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
         }
       }
     }
@@ -285,7 +315,7 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
       body: RefreshIndicator(
         onRefresh: () => ref.read(adminWorkoutNotifierProvider.notifier).loadWorkouts(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -298,12 +328,12 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  height: 200,
+                  height: 180, // Reduced height
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color: const Color(0xFFE6E9FD), // Light blue color
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey),
+                    border: Border.all(color: const Color(0xFFB3B9F8)), // Slightly darker blue border
                   ),
                   child: _pickedImage != null
                       ? Stack(
@@ -332,11 +362,14 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo, size: 50, color: Colors.grey[600]),
-                            const SizedBox(height: 10),
+                            Icon(Icons.add_a_photo, size: 40, color: const Color(0xFF241A87)),
+                            const SizedBox(height: 8),
                             Text(
                               "Tap to add workout image",
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(
+                                color: const Color(0xFF241A87),
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),
@@ -354,28 +387,13 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                       ),
                       validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _traineeIdController,
-                      decoration: const InputDecoration(
-                        labelText: "Trainee ID",
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a Trainee ID';
-                        }
-                        if (int.tryParse(value) == null) {
-                          return 'Please enter a valid number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                    // Removed Trainee ID field as it's auto-filled
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _setsController,
                       decoration: const InputDecoration(
                         labelText: "Sets",
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                       ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
@@ -388,11 +406,12 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _repsController,
                       decoration: const InputDecoration(
                         labelText: "Reps/Sec",
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                       ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
@@ -405,11 +424,12 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _restController,
                       decoration: const InputDecoration(
-                        labelText: "Rest Time",
+                        labelText: "Rest Time (seconds)",
+                        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                       ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
@@ -423,14 +443,28 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _createWorkout,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DeepBlue,
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                        textStyle: const TextStyle(fontSize: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _createWorkout,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFF241A87),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text("Create Workout", style: TextStyle(fontSize: 16)),
                       ),
-                      child: const Text("Create", style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
