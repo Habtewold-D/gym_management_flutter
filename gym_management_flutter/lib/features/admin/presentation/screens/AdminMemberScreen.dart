@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:gym_management_flutter/utils/app_theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:gym_management_flutter/core/models/member_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -39,6 +41,10 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
   void initState() {
     super.initState();
     _membersFuture = fetchMembers();
+    // Set system UI overlay style when the screen is first built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppThemeUtils.setSystemUIOverlay();
+    });
   }
 
   @override
@@ -74,8 +80,7 @@ class _AdminMemberScreenState extends State<AdminMemberScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gym Progress"),
-        backgroundColor: const Color(0xFF241A87),
+        title: const Text('Members'),
       ),
       body: RefreshIndicator(
         onRefresh: _refreshMembers,

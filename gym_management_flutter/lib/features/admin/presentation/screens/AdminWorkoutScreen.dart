@@ -8,9 +8,11 @@ import 'package:gym_management_flutter/features/admin/presentation/providers/adm
 import 'package:gym_management_flutter/features/admin/presentation/widgets/image_picker_preview_widget.dart';
 import 'package:gym_management_flutter/features/admin/presentation/screens/edit_workout_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:gym_management_flutter/utils/app_theme_utils.dart';
+import 'package:flutter/services.dart';
 
 // Color constants reused
-const DeepBlue = Color(0xFF0000CD);
+const DeepBlue = Color(0xFF241A87);
 const LightBlue = Color(0xFFE6E9FD);
 
 // WorkoutCard Widget
@@ -187,6 +189,11 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
     // or modify provider to load by user ID if that's a common use case.
     // For now, loading all and filtering in UI.
     Future.microtask(() => ref.read(adminWorkoutNotifierProvider.notifier).loadWorkouts());
+    
+    // Set system UI overlay style when the screen is first built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppThemeUtils.setSystemUIOverlay();
+    });
   }
 
   @override
@@ -310,7 +317,6 @@ class _AdminWorkoutScreenState extends ConsumerState<AdminWorkoutScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Workouts"),
-        backgroundColor: const Color(0xFF241A87),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(adminWorkoutNotifierProvider.notifier).loadWorkouts(),

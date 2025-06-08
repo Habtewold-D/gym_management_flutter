@@ -8,9 +8,11 @@ import 'package:gym_management_flutter/features/admin/presentation/screens/edit_
 import 'package:gym_management_flutter/features/admin/presentation/widgets/image_picker_preview_widget.dart';
 import 'package:gym_management_flutter/utils/image_picker_util.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:gym_management_flutter/utils/app_theme_utils.dart';
+import 'package:flutter/services.dart';
 
 // Color constants
-const DeepBlue = Color(0xFF0000CD);
+const DeepBlue = Color(0xFF241A87);
 const LightBlue = Color(0xFFE6E9FD);
 
 class EventCard extends StatelessWidget {
@@ -197,6 +199,11 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
     super.initState();
     // Load events when the screen is first displayed
     Future.microtask(() => ref.read(adminEventNotifierProvider.notifier).loadEvents());
+    
+    // Set system UI overlay style when the screen is first built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppThemeUtils.setSystemUIOverlay();
+    });
   }
 
   @override
@@ -362,7 +369,6 @@ class _AdminEventScreenState extends ConsumerState<AdminEventScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Events"),
-        backgroundColor: const Color(0xFF241A87),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(adminEventNotifierProvider.notifier).loadEvents(),

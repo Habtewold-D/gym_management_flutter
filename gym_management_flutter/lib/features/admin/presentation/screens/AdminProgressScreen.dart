@@ -6,6 +6,8 @@ import 'package:gym_management_flutter/core/services/admin_service.dart';
 import 'package:gym_management_flutter/features/auth/presentation/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gym_management_flutter/navigation/app_routes.dart';
+import 'package:flutter/services.dart';
+import 'package:gym_management_flutter/utils/app_theme_utils.dart';
 
 class AdminProgressScreen extends ConsumerStatefulWidget {
   const AdminProgressScreen({Key? key}) : super(key: key);
@@ -42,6 +44,10 @@ class _AdminProgressScreenState extends ConsumerState<AdminProgressScreen> {
   void initState() {
     super.initState();
     _progressFuture = fetchProgress();
+    // Set system UI overlay style when the screen is first built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppThemeUtils.setSystemUIOverlay();
+    });
   }
   
   Future<void> _refreshProgress() async {
@@ -54,11 +60,7 @@ class _AdminProgressScreenState extends ConsumerState<AdminProgressScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Gym Progress",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF0000CD),
+        title: const Text('Gym Progress', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
