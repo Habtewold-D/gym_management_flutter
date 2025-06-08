@@ -89,29 +89,29 @@ class WorkoutCard extends StatelessWidget {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(15),
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: IconButton(
-                    icon: const Icon(Icons.edit, color: DeepBlue, size: 20),
+                    icon: const Icon(Icons.edit, color: DeepBlue, size: 18),
                     onPressed: onEdit,
-                    padding: EdgeInsets.zero, // Remove extra padding
-                    constraints: const BoxConstraints(), // Remove default constraints
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(15),
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 18),
                     onPressed: onDelete,
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.all(6),
                     constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
               ],
