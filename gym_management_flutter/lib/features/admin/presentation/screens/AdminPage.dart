@@ -55,8 +55,9 @@ class AdminPage extends ConsumerWidget {
         onTap: (index) =>
             ref.read(adminNavigationProvider.notifier).setIndex(index),
         type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.grey[200],
         selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.black87,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center),

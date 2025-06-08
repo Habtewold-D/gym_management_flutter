@@ -79,8 +79,9 @@ class _MemberDashboardScreenState extends ConsumerState<MemberDashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFF0000CD),
-        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.grey[200],
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.black87,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center),
