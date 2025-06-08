@@ -4,6 +4,22 @@ import 'package:go_router/go_router.dart';
 class SplashScreen extends StatelessWidget {
   const SplashScreen({Key? key}) : super(key: key);
   
+  Widget _buildContactRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 24), // Increased icon size
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 18), // Increased font size by ~80%
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _navigateToLogin(BuildContext context) {
     context.go('/login');
   }
@@ -24,6 +40,7 @@ class SplashScreen extends StatelessWidget {
               // Top blue rounded container
               Container(
                 width: double.infinity,
+                height: MediaQuery.of(context).size.height * 0.30, // Set to 30% of screen height
                 decoration: const BoxDecoration(
                   color: Color(0xFF241A87),
                   borderRadius: BorderRadius.only(
@@ -31,37 +48,49 @@ class SplashScreen extends StatelessWidget {
                     bottomRight: Radius.circular(40),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                padding: const EdgeInsets.only(bottom: 40, left: 24, right: 24, top: 20),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Circular gym logo
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundImage: AssetImage('assets/images/gym_logo.png'),
+                    // Gym logo without white border
+                    Container(
+                      width: 130,
+                      height: 130,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        image: DecorationImage(
+                          image: AssetImage('assets/images/gym_logo.png'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
                       'FITNESS GYM',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 29, // Reduced by ~10%
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Your journey to a healthier life starts here',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
+                    const SizedBox(height: 10),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Text(
+                        'Your journey to a healthier life starts here',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16, // Reduced by ~10%
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               // Contact Us
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -72,33 +101,13 @@ class SplashScreen extends StatelessWidget {
                       'Contact Us',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 22, // Increased by ~80%
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: const [
-                        Icon(Icons.phone, size: 18),
-                        SizedBox(width: 8),
-                        Text('+251 90 102 0304'),
-                      ],
-                    ),
-                    SizedBox(height: 4),
-                    Row(
-                      children: const [
-                        Icon(Icons.email, size: 18),
-                        SizedBox(width: 8),
-                        Text('info@fitnessgym.com'),
-                      ],
-                    ),
-                    SizedBox(height: 4),
-                    Row(
-                      children: const [
-                        Icon(Icons.location_on, size: 18),
-                        SizedBox(width: 8),
-                        Expanded(child: Text('5 kilo, Addis Ababa, Ethiopia')),
-                      ],
-                    ),
+                    const SizedBox(height: 12),
+                    _buildContactRow(Icons.phone, '+251 90 102 0304'),
+                    _buildContactRow(Icons.email, 'info@fitnessgym.com'),
+                    _buildContactRow(Icons.location_on, '5 kilo, Addis Ababa, Ethiopia'),
                   ],
                 ),
               ),
@@ -110,7 +119,7 @@ class SplashScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   child: Image.asset(
                     'assets/images/gym_logo.png',
-                    height: 120,
+                    height: 240, // Doubled from 120
                     width: double.infinity,
                     fit: BoxFit.cover,
                   ),
